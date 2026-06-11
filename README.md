@@ -12,7 +12,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/TypeScript-strict-B8860B?style=flat-square" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/runtime_deps-3-8B0000?style=flat-square" alt="3 runtime deps" />
-  <img src="https://img.shields.io/badge/tests-43_passing-2E8B57?style=flat-square" alt="tests" />
+  <a href="https://github.com/ariangibson/understudy/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ariangibson/understudy/ci.yml?style=flat-square&label=tests" alt="CI" /></a>
+  <a href="https://github.com/ariangibson/understudy/pkgs/container/understudy"><img src="https://img.shields.io/badge/ghcr.io-understudy-8B0000?style=flat-square&logo=docker&logoColor=white" alt="GHCR" /></a>
   <img src="https://img.shields.io/badge/node-%E2%89%A520-555?style=flat-square" alt="node 20+" />
   <img src="https://img.shields.io/badge/license-MIT-555?style=flat-square" alt="MIT" />
 </p>
@@ -50,6 +51,12 @@ cd understudy
 npm install
 cp .env.example .env
 npm run dev            # or: docker compose up -d
+```
+
+Or skip the clone and run the prebuilt image (multi-arch, amd64 + arm64):
+
+```bash
+docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest
 ```
 
 The two lines in `.env` that change everything:
@@ -274,6 +281,8 @@ npm test            # vitest — translation, routing, failover, cooldowns, cach
 npm run typecheck   # strict TS, noUncheckedIndexedAccess
 npm run build       # emit dist/
 ```
+
+CI runs typecheck + tests on every push and PR; merges to `main` build and publish the multi-arch image to [`ghcr.io/ariangibson/understudy`](https://github.com/ariangibson/understudy/pkgs/container/understudy) (tags: `latest`, `sha-*`, and semver on `v*` tags).
 
 ## License
 
