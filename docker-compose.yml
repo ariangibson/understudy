@@ -1,31 +1,14 @@
-version: '3.8'
-
 services:
-  universal-proxy:
+  understudy:
     build: .
     ports:
       - "3001:3001"
-    environment:
-      - NODE_ENV=production
-      - PORT=3001
-      - LOG_LEVEL=info
-    env_file:
-      - .env
+    env_file: .env
     volumes:
-      - ./logs:/usr/src/app/logs
+      - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
-    networks:
-      - proxy-network
-
-networks:
-  proxy-network:
-    driver: bridge
-
-volumes:
-  logs:

@@ -1,454 +1,280 @@
-# Universal Proxy Server
+<p align="center">
+  <img src="docs/banner.jpg" alt="Understudy — when your model can't go on, the show does" width="100%" />
+</p>
 
-A modular, extensible proxy server with AI/LLM integration, advanced bot detection bypass, and secure credential management. Features unified APIs for OpenAI, Google Gemini, xAI Grok, and browser automation.
+<p align="center"><b>When your model can't go on, the show does.</b></p>
 
-## 🚀 Core Features
+<p align="center">
+  The self-hosted LLM gateway that keeps your AI agents running.<br/>
+  Rate limit? Quota? Outage? The understudy steps in mid-performance — your agent never knows.
+</p>
 
-- **🤖 AI & LLM Integration**: OpenAI GPT, Google Gemini, xAI Grok with live search
-- **🎭 Browser Automation**: Playwright-powered scraping with stealth mode
-- **🌐 HTTP Proxy**: Generic proxying with residential proxy support  
-- **🔒 Security-First**: SSRF protection, input validation, encrypted credentials
-- **📦 Modular Architecture**: Easy to extend with custom service modules
-- **⚡ Rate Limiting**: Configurable limits per service
-- **🔑 Authentication**: API key-based security
-- **📊 Monitoring**: Health checks and comprehensive logging
-- **🐳 Docker Ready**: Containerized deployment support
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-strict-B8860B?style=flat-square" alt="TypeScript strict" />
+  <img src="https://img.shields.io/badge/runtime_deps-3-8B0000?style=flat-square" alt="3 runtime deps" />
+  <img src="https://img.shields.io/badge/tests-43_passing-2E8B57?style=flat-square" alt="tests" />
+  <img src="https://img.shields.io/badge/node-%E2%89%A520-555?style=flat-square" alt="node 20+" />
+  <img src="https://img.shields.io/badge/license-MIT-555?style=flat-square" alt="MIT" />
+</p>
 
-## 🛠️ Quick Start
+---
 
-### Installation
+## The scene
+
+It's 2 a.m. Your agent is deep in an overnight run — the refactor is *finally* going somewhere. Then:
+
+```
+RateLimitError: 429 — you have exceeded your quota
+```
+
+The harness dies. The run dies. Your flow dies with it. You know this pain. Everyone running agents knows this pain.
+
+**Understudy is the fix.** Point your agent at one endpoint. When the lead model can't perform, the gateway swaps in the next one mid-run, benches the one that failed, and brings it back when it recovers. No harness restart. No config change. No 2 a.m. page.
+
+```
+Without understudy:                    With understudy:
+
+  claude-opus-4-8 → 429                  claude-opus-4-8 → 429
+  ✖ session dead                         ↳ benched 60s · claude-sonnet-4-6 steps in
+  ✖ reconfigure harness                  ↳ request served · the loop continues
+  ✖ flow lost                            ✔ the show goes on
+```
+
+Works out of the box with **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks the OpenAI API.
+
+## Opening night
 
 ```bash
-git clone <repository-url>
-cd universal-proxy
+git clone https://github.com/ariangibson/understudy
+cd understudy
 npm install
-```
-
-### Configuration
-
-```bash
 cp .env.example .env
-# Edit .env with your API keys and configuration
+npm run dev            # or: docker compose up -d
 ```
 
-### Start Server
+The two lines in `.env` that change everything:
 
 ```bash
-npm start
-# or for development with auto-reload:
-npm run dev
+ANTHROPIC_API_KEY=sk-ant-...
+FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,openai/gpt-5-mini
 ```
 
-The server runs on `http://localhost:3001` by default.
-
-## 🌐 Core Functionality
-
-### Generic HTTP Proxy
-
-Route any HTTP request through the proxy with optional residential proxy support:
+That's it. Every request through the gateway — from any client, with **zero client-side changes** — now fails over down that chain whenever its model is unavailable.
 
 ```bash
-# Simple proxy request
-curl -X GET http://localhost:3001/proxy/anything \
-  -H "x-target-url: https://api.github.com/users/octocat"
-
-# Using residential proxy for enhanced privacy
-curl -X GET http://localhost:3001/proxy/anything \
-  -H "x-target-url: https://api.example.com/data" \
-  -H "x-use-proxy: true" \
-  -H "x-proxy-type: residential"
+curl http://localhost:3001/v1/chat/completions \
+  -H "content-type: application/json" \
+  -d '{"model": "claude-opus-4-8", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
 
-**Security**: Automatically blocks requests to private networks, localhost, and metadata services to prevent SSRF attacks.
+## Seat your agent
 
-### Playwright Browser Automation
+Anything that lets you set an OpenAI-compatible base URL works unmodified.
 
-Advanced browser-based scraping with bot detection bypass:
+**OpenClaw** — add understudy as a custom provider in `~/.openclaw/openclaw.json` (the same slot used for LiteLLM; see [OpenClaw's model-providers docs](https://docs.openclaw.ai/concepts/model-providers)):
 
-```bash
-# Get HTML content
-curl -X POST http://localhost:3001/api/playwright/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "stealth": true}'
-
-# Take screenshot
-curl -X POST http://localhost:3001/api/playwright/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "output": "screenshot", "fullPage": true}' \
-  --output screenshot.png
-
-# Generate PDF
-curl -X POST http://localhost:3001/api/playwright/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://example.com", "output": "pdf"}' \
-  --output document.pdf
-
-# Extract cookies for n8n automation
-curl -X POST http://localhost:3001/api/playwright/scrape \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://secure-site.com", "output": "cookies", "autoLogin": true}'
-```
-
-**Stealth Features**: Modern user agents, WebDriver property removal, plugin mocking, multiple browser engines, and automatic login with encrypted credential storage.
-
-## 📦 Module System
-
-The Universal Proxy Server uses a modular architecture that makes it easy to add new service integrations.
-
-### Creating a Module
-
-Create a new file in the `modules/` directory with this template:
-
-```javascript
-// modules/your-service.js
-const yourServiceModule = {
-  description: 'Description of your service',
-  endpoints: ['endpoint1', 'endpoint2'],
-
-  async handler(endpoint, req, res) {
-    switch (endpoint) {
-      case 'endpoint1':
-        return await this.handleEndpoint1(req, res);
-      case 'endpoint2':
-        return await this.handleEndpoint2(req, res);
-      default:
-        throw new Error(`Unknown endpoint: ${endpoint}`);
+```json
+{
+  "models": {
+    "providers": {
+      "understudy": {
+        "baseUrl": "http://localhost:3001/v1",
+        "apiKey": "your-gateway-key",
+        "api": "openai-completions",
+        "models": [{ "id": "claude-sonnet-4-6" }, { "id": "gpt-5-mini" }]
+      }
     }
-  },
-
-  async handleEndpoint1(req, res) {
-    // Your implementation here
-    return { message: 'Success' };
-  },
-
-  async handleEndpoint2(req, res) {
-    // Your implementation here
-    return { data: 'Your data' };
   }
-};
-
-module.exports = yourServiceModule;
+}
 ```
 
-The module will automatically be loaded and available at `/api/your-service/endpoint1` and `/api/your-service/endpoint2`.
+**Hermes Agent** — set a custom endpoint (when `base_url` is set, Hermes calls it directly; see [Hermes' provider docs](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
-### Example Module: AWS Polly
-
-Text-to-speech service using AWS Polly (requires AWS credentials):
-
-```bash
-# Convert text to speech
-curl -X POST http://localhost:3001/api/aws-polly/tts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Hello world, this is a test of AWS Polly text-to-speech",
-    "voiceId": "Joanna",
-    "engine": "neural"
-  }' \
-  --output speech.mp3
-
-# List available voices
-curl http://localhost:3001/api/aws-polly/voices
+```yaml
+base_url: http://localhost:3001/v1
+api_key: your-gateway-key   # or OPENAI_API_KEY
+model: anthropic/claude-opus-4-8
 ```
 
-**Supported Voices**: Joanna, Matthew, Ivy, Justin, Kendra, Kimberly, Salli, Joey, Amy, Brian, Emma
+**LangChain / LlamaIndex / your own code** — standard OpenAI client, custom base URL:
 
-### Example Module: ElevenLabs
+```python
+from openai import OpenAI
 
-High-quality text-to-speech using ElevenLabs API (requires ElevenLabs API key):
+client = OpenAI(base_url="http://localhost:3001/v1", api_key="your-gateway-key")
 
-```bash
-# Convert text to speech with premium voices
-curl -X POST http://localhost:3001/api/elevenlabs/tts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Hello world, this is ElevenLabs premium text-to-speech",
-    "voice_id": "21m00Tcm4TlvDq8ikWAM",
-    "model_id": "eleven_multilingual_v2"
-  }' \
-  --output speech.mp3
-
-# Use custom API key for specific request
-curl -X POST http://localhost:3001/api/elevenlabs/tts \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Premium voice synthesis with ElevenLabs",
-    "voice_id": "EXAVITQu4vr4xnSDxMaL",
-    "elevenlabs_api_key": "your-elevenlabs-key"
-  }' \
-  --output premium_speech.mp3
+response = client.chat.completions.create(
+    model="claude-sonnet-4-6",       # Claude as the agent brain, via the OpenAI SDK
+    messages=[{"role": "user", "content": "Plan the next refactor step."}],
+    tools=[...],                      # tool calling works across providers
+)
 ```
 
-**Features**: Premium voice cloning, multilingual support, emotional speech synthesis
+Recast the lead by changing one string: `gpt-5.5`, `gemini-3.5-flash`, `grok-4.3`, `ollama/qwen3`, ...
 
-### Example Module: Google Gemini
+## The cast
 
-Advanced AI capabilities using Google's Gemini models (requires Google API key):
+One OpenAI-compatible endpoint in front of every provider. The router reads the model name (`claude-*` → Anthropic, `gpt-*` → OpenAI, `gemini-*` → Google, ...) or takes explicit `provider/model` form.
 
-```bash
-# Chat completion
-curl -X POST http://localhost:3001/api/google/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [
-      {"role": "user", "content": "Explain quantum computing simply"}
-    ],
-    "model": "gemini-2.0-flash-exp"
-  }'
+| Provider | Models | How |
+|---|---|---|
+| Anthropic | Claude (Fable, Opus, Sonnet, Haiku) | Full protocol translation, incl. live SSE re-emission and tool calling |
+| OpenAI | GPT-5.x family | Passthrough |
+| Google | Gemini 3.x | Passthrough (OpenAI-compatible endpoint) |
+| xAI | Grok 4.x | Passthrough |
+| Groq | Llama 4, etc. (fast inference) | Passthrough |
+| DeepSeek | deepseek-chat / reasoner | Passthrough |
+| Mistral | Mistral / Codestral | Passthrough |
+| Ollama | Anything local — qwen3, llama, ... | Passthrough; keyless |
 
-# Image generation with Imagen 3
-curl -X POST http://localhost:3001/api/google/images \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "A futuristic cityscape with flying cars at sunset",
-    "model": "imagen-3.0-generate-001",
-    "aspectRatio": "1:1"
-  }'
+The interesting one is Anthropic, which doesn't speak the OpenAI dialect: understudy translates request shapes, response shapes, **tool calling in both directions** (`tools`/`tool_calls` ⇄ `tool_use`/`tool_result`), vision blocks, and the entire SSE event stream — re-emitted live as OpenAI `chat.completion.chunk` events. Agent frameworks run Claude as their brain through the OpenAI wire format, tools included, none the wiser.
 
-# List available models
-curl http://localhost:3001/api/google/models
-```
+*One honest program note:* the OpenAI dialect can't express Anthropic-only extras like `cache_control` breakpoints or thinking-block replay. Claude performs fully as an agent brain; those provider-specific optimizations just don't fit this wire format.
 
-**Features**: Latest Gemini 2.0 models, Imagen 3 image generation, function calling support
+## Cue the understudy
 
-### Example Module: OpenAI
+Failover triggers on retryable failures — HTTP 429 (rate limit / quota), 5xx, 529 (overloaded), network errors. Non-retryable errors (your malformed request won't get better on another model) are returned honestly.
 
-Complete OpenAI API proxy with advanced AI capabilities (requires OpenAI API key):
+The circuit breaker is what makes it fast under fire: a failing model is **benched** for `COOLDOWN_S` (default 30s — or whatever `Retry-After` the provider sends), and while benched, every request routes straight to the next model with zero wasted attempts. Benches expire on their own; the lead returns when it's ready. If *every* model in a chain is benched, understudy tries anyway rather than failing instantly.
 
 ```bash
-# Chat completion
-curl -X POST http://localhost:3001/api/openai/chat \
-  -H "Content-Type: application/json" \
+# Per-request chain (overrides FALLBACK_CHAIN)
+curl http://localhost:3001/v1/chat/completions -H "content-type: application/json" \
   -d '{
-    "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "Hello!"}],
-    "max_tokens": 100
-  }'
-
-# Image generation with DALL-E 3
-curl -X POST http://localhost:3001/api/openai/images \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "A futuristic city with flying cars at sunset",
-    "model": "dall-e-3",
-    "size": "1024x1024",
-    "quality": "hd",
-    "style": "vivid"
-  }'
-
-# List available models
-curl http://localhost:3001/api/openai/models
-
-# Embeddings
-curl -X POST http://localhost:3001/api/openai/embeddings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "text-embedding-3-large",
-    "input": "Hello world"
+    "model": "anthropic/claude-opus-4-8",
+    "fallbacks": ["anthropic/claude-sonnet-4-6", "openai/gpt-5-mini"],
+    "messages": [{"role": "user", "content": "Hello"}]
   }'
 ```
 
-**Features**: Latest GPT models, DALL-E 3 image generation, advanced embeddings, function calling
+You always know who's on stage:
 
-### Example Module: xAI (Grok)
+| Signal | Meaning |
+|---|---|
+| `x-understudy-provider` / `x-understudy-model` | Who actually served this request |
+| `x-understudy-fallback: from openai/gpt-5.5` | An understudy performed; this names the lead who couldn't |
+| `GET /health` → `"cooldowns": {"openai/gpt-5.5": 47}` | Who's benched, and for how many more seconds |
 
-Grok AI with live search and real-time information (requires xAI API key):
+Failover applies before first byte; a stream that dies midway isn't silently restarted — your harness's normal retry handles that, and the retry gets the failover.
 
-```bash
-# Chat with Grok-3 Mini (efficient model, real-time search available)
-curl -X POST http://localhost:3001/api/xai/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "grok-3-mini",
-    "messages": [{"role": "user", "content": "What are the latest news about AI developments?"}],
-    "max_tokens": 500
-  }'
+## Rehearsals are free
 
-# Live search with specific recency filter (works with Grok-3 Beta)
-curl -X POST http://localhost:3001/api/xai/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "grok-3-beta",
-    "messages": [{"role": "user", "content": "What happened in tech today?"}],
-    "enable_live_search": true,
-    "search_recency_filter": "day"
-  }'
+Identical requests within the TTL (default 5 minutes) are served straight from memory — no provider call, no tokens billed, ~0 ms. Agent retries after crashes, eval-suite reruns, and tight dev loops stop re-billing you for lines the model already delivered.
 
-# Image generation with Aurora
-curl -X POST http://localhost:3001/api/xai/images \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "A serene mountain landscape at dawn",
-    "model": "grok-2-image-1212"
-  }'
+The cache is stream-aware in both directions: a completed *streamed* response is reassembled from its own SSE chunks to populate the cache, and a cache hit for a `stream: true` request is replayed as synthesized SSE — clients can't tell the difference. The key ignores `stream` and `fallbacks`, so streamed and non-streamed requests for the same prompt share one entry.
 
-# List available models
-curl http://localhost:3001/api/xai/models
-```
+- Responses carry `x-understudy-cache: hit | miss`
+- Per-request opt-out: send `x-understudy-cache: bypass`
+- Disable globally: `CACHE_TTL_S=0`
 
-**Features**: Grok-3 Beta with live search, Grok-3 Mini for efficiency, Aurora image generation, real-time information, function calling support  
-**Live Search Filters**: `auto`, `day`, `week`, `month`, `year` for different time ranges
+## The box office
 
-## ⚙️ Configuration
-
-### Environment Variables
-
-Configure the server using environment variables in your `.env` file:
+Every request is logged (JSONL) with tokens, computed USD cost, latency, and who served it. You finally know what the overnight run cost — and what the cache saved you.
 
 ```bash
-# Server Configuration
-PORT=3001
-NODE_ENV=production
-LOG_LEVEL=info
-
-# CORS Origins (comma-separated)
-ALLOWED_ORIGINS=https://claude.ai,http://localhost:3000
-
-# API Keys (optional - comma-separated for multiple keys)
-API_KEYS=your-secret-api-key
-
-# AWS Credentials (for aws-polly module)
-AWS_ACCESS_KEY_ID=your_access_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_REGION=us-east-1
-
-# ElevenLabs (for elevenlabs module)
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-
-# OpenAI (for openai module)
-OPENAI_API_KEY=your_openai_key_here
-
-# Google AI (for google module)
-GOOGLE_API_KEY=your_google_api_key_here
-
-# xAI (for xai module with Grok models and live search)
-XAI_API_KEY=your_xai_api_key_here
-
-# Residential Proxy Configuration
-PROXY_RESIDENTIAL_HOST=your-residential-proxy-host.com
-PROXY_RESIDENTIAL_PORT=10000
-PROXY_RESIDENTIAL_USERNAME=your-residential-username
-PROXY_RESIDENTIAL_PASSWORD=your-residential-password
-
-# Datacenter Proxy Configuration (optional)
-PROXY_DATACENTER_HOST=your-datacenter-proxy-host.com
-PROXY_DATACENTER_PORT=8080
-PROXY_DATACENTER_USERNAME=your-datacenter-username
-PROXY_DATACENTER_PASSWORD=your-datacenter-password
-
-# Credentials Encryption (for secure login storage)
-CREDENTIALS_ENCRYPTION_KEY=your-32-character-encryption-key-here
+curl http://localhost:3001/v1/usage | jq
 ```
 
-### Rate Limits
+```json
+{
+  "total_requests": 42,
+  "total_prompt_tokens": 18203,
+  "total_completion_tokens": 9417,
+  "total_cost_usd": 0.1962,
+  "cached_requests": 9,
+  "cache_saved_usd": 0.0411,
+  "by_model": {
+    "anthropic/claude-sonnet-4-6": { "requests": 30, "prompt_tokens": 15000, "completion_tokens": 8000, "cost_usd": 0.165 },
+    "openai/gpt-5-mini": { "requests": 12, "prompt_tokens": 3203, "completion_tokens": 1417, "cost_usd": 0.0013 }
+  }
+}
+```
 
-Different endpoints have different rate limits:
+Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other providers' rates change often — edit `src/pricing.ts` to match your account. Unknown models record `cost: null`, never a fabricated number.
 
-- **Playwright Scraping**: 20 requests per 15 minutes (resource intensive)
-- **AWS Polly & ElevenLabs TTS**: 50 requests per 15 minutes
-- **AI Modules (OpenAI, Google, xAI)**: 100 requests per 15 minutes
-- **Generic Proxy**: 200 requests per 15 minutes  
-- **Other endpoints**: 1000 requests per 15 minutes
+## Playbill
 
-### Authentication
+| Endpoint | Description |
+|---|---|
+| `POST /v1/chat/completions` | OpenAI-compatible chat — streaming + non-streaming, tools, vision, failover |
+| `GET /v1/models` | Live aggregated model list across all configured providers (5-min cache) |
+| `GET /v1/usage` | Usage, cost, and cache-savings summary |
+| `GET /health` | Status, active providers, current cooldowns (unauthenticated) |
 
-API keys are optional but recommended for production:
+Extras understood on chat requests: `fallbacks` (per-request failover chain) and `reasoning_effort` (mapped to Anthropic adaptive thinking + `output_config.effort`; passed through to providers that support it natively). Sampling params are auto-stripped for models that reject them (Opus 4.7+, Fable 5). Your provider keys live server-side; agents authenticate with gateway keys (`GATEWAY_API_KEYS`).
+
+## Backstage
+
+```mermaid
+flowchart LR
+    Agent["Agent harness<br/>(OpenClaw, Hermes, LangChain, ...)"] -->|"OpenAI dialect"| GW
+
+    subgraph GW["understudy"]
+        Auth["auth"] --> Cache["response cache<br/>(LRU + TTL, SSE replay)"]
+        Cache --> Router["router<br/>model → provider"]
+        Router --> Chain["failover chain<br/>+ circuit breaker"]
+        Chain --> A["anthropic adapter<br/>(protocol + SSE translation)"]
+        Chain --> O["openai-compat adapter<br/>(passthrough + usage capture)"]
+        A & O --> Usage["usage tracker<br/>(JSONL + cost)"]
+    end
+
+    A -->|"Messages API"| Anthropic["Anthropic"]
+    O --> OpenAI["OpenAI"] & Google["Google"] & xAI["xAI"] & Groq["Groq"] & DeepSeek["DeepSeek"] & Mistral["Mistral"] & Ollama["Ollama (local)"]
+```
+
+The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key — it forwards bytes and scans the SSE stream for the usage chunk without buffering. The one major provider that doesn't (Anthropic) gets a real translation layer, written as pure functions with no I/O ([`src/providers/anthropic-translate.ts`](src/providers/anthropic-translate.ts)) so the whole thing is unit-tested without mocks.
+
+```
+src/
+  app.ts                       HTTP surface: auth, cache, failover orchestration
+  router.ts                    model string → provider resolution + chain dedup
+  cooldown.ts                  circuit breaker (bench / recover / report)
+  config.ts                    provider registry (add a provider in ~8 lines)
+  cache.ts                     response cache: keying, LRU+TTL, SSE assembly/replay
+  pricing.ts                   per-MTok price table → request cost
+  usage.ts                     JSONL log + aggregation
+  providers/
+    anthropic-translate.ts     pure OpenAI ⇄ Anthropic translation (incl. streaming)
+    anthropic.ts               SDK wiring for the translator
+    openai-compat.ts           passthrough for every OpenAI-compatible provider
+```
+
+### Director's notes (design decisions)
+
+- **The harness must never need to know.** Failover, cooldowns, and caching are server-side defaults, not client features — because agent frameworks send plain OpenAI requests and can't be taught gateway extensions. Anything requiring a client change is opt-in sugar, never load-bearing.
+- **OpenAI dialect on the outside.** It's the format every agent framework already speaks. Translating *to* it once at the gateway beats teaching every harness N provider protocols.
+- **Pure translation functions.** Plain objects and async iterables in, plain objects out. Tests feed fake event streams; no network, no SDK mocks.
+- **Stream without buffering.** First tokens reach the agent immediately; usage capture and cache assembly tee SSE bytes through line scanners, never collect the response.
+- **Fail honestly.** Unknown model → 400 with the exact fix. Missing key → 503 naming the env var. Unknown pricing → `cost: null`. Non-retryable errors are returned, not retried into a different model's mouth.
+- **No database.** Usage is append-only JSONL aggregated on read; cooldowns and cache are in-memory. For a personal/team gateway: simpler, greppable, plenty fast.
+
+## Stage directions
+
+All via environment (see `.env.example`):
+
+| Variable | Purpose |
+|---|---|
+| `FALLBACK_CHAIN` | Server-wide failover chain (comma-separated models), applied to every request without its own `fallbacks` |
+| `COOLDOWN_S` | Circuit-breaker bench time in seconds (default 30; provider `Retry-After` wins) |
+| `GATEWAY_API_KEYS` | Comma-separated client keys. Empty = open (localhost only!) |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY` | Enable each provider |
+| `OLLAMA_ENABLED` / `OLLAMA_BASE_URL` | Local models via Ollama |
+| `CACHE_TTL_S` / `CACHE_MAX_ENTRIES` | Response cache TTL in seconds (default 300; 0 disables) and capacity (default 500) |
+| `DEFAULT_MAX_TOKENS` | Used when clients omit `max_tokens` (default 4096) |
+| `USAGE_LOG` | JSONL path (default `data/usage.jsonl`) |
+| `PORT` | Default 3001 |
+
+Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
+
+## Tech rehearsal
 
 ```bash
-# All requests (when API keys are configured)
-curl -H "x-api-key: your-api-key" http://localhost:3001/api/services
-
-# Public endpoints (no key required)
-curl http://localhost:3001/health
-curl http://localhost:3001/api/services
+npm run dev         # watch mode
+npm test            # vitest — translation, routing, failover, cooldowns, cache
+npm run typecheck   # strict TS, noUncheckedIndexedAccess
+npm run build       # emit dist/
 ```
 
-## 🔒 Security Features
+## License
 
-### Built-in Protection
-
-- **SSRF Prevention**: Blocks requests to private networks and dangerous URLs
-- **Input Validation**: Comprehensive sanitization of all inputs
-- **Rate Limiting**: Prevents abuse and DoS attacks
-- **Secure Headers**: CSP, HSTS, and other security headers
-- **Encrypted Storage**: AES-256-GCM for sensitive credentials
-- **Error Sanitization**: Prevents information disclosure
-
-### Blocked URLs
-
-The proxy automatically blocks requests to:
-- Private IP ranges (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
-- Localhost and loopback addresses
-- Metadata services (169.254.169.254, metadata.google.internal)
-- Internal domains (.internal, .local, .corp, etc.)
-
-## 🐳 Docker Deployment
-
-### Using Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### Manual Docker Build
-
-```bash
-docker build -t universal-proxy .
-docker run -p 3001:3001 --env-file .env universal-proxy
-```
-
-## 📊 Monitoring
-
-### Health Check
-
-```bash
-curl http://localhost:3001/health
-```
-
-Response includes server status, loaded modules, and uptime.
-
-### Service Discovery
-
-```bash
-curl http://localhost:3001/api/services
-```
-
-Lists all available modules and their endpoints.
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Port already in use**: Change `PORT=3002` in `.env`
-
-**Module loading errors**: Check that your module exports the correct structure and run `npm install`
-
-**AI API errors**: Verify your API keys are correctly set in `.env` (OPENAI_API_KEY, GOOGLE_API_KEY, XAI_API_KEY, ELEVENLABS_API_KEY)
-
-**Live search not working**: Ensure xAI API key is valid and has appropriate permissions for search features
-
-**CORS errors**: Add your domain to `ALLOWED_ORIGINS` in `.env`
-
-**Rate limiting**: Public endpoints (`/health`, `/api/services`) are exempt from rate limits
-
-**Proxy blocks legitimate URLs**: The SSRF protection is intentionally strict. Use the generic proxy for external URLs only.
-
-### Support
-
-- **Issues**: Create an issue on GitHub
-- **Documentation**: Check this README and code comments
-- **Logs**: Check console output for detailed error messages
-
-## 📝 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add your module or improvements
-4. Test thoroughly with all endpoints
-5. Submit a pull request
-
-The modular architecture makes it easy to contribute new service integrations! When adding AI modules, follow OpenAI-style conventions for consistency.
+MIT — *the show is yours.*
