@@ -9,7 +9,7 @@ import { hasOAuth } from "./oauth.js";
 
 export interface ProviderConfig {
   name: string;
-  kind: "openai-compat" | "anthropic";
+  kind: "openai-compat" | "anthropic" | "chatgpt";
   baseUrl?: string;
   apiKeyEnv: string;
   /** Whether the provider honors `stream_options: {include_usage: true}`. */
@@ -81,6 +81,16 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     apiKeyEnv: "OLLAMA_API_KEY", // unused by default; Ollama needs no key
     streamUsage: false,
     modelPrefixes: ["llama", "qwen", "phi", "gemma"],
+  },
+  chatgpt: {
+    name: "chatgpt",
+    kind: "chatgpt",
+    // The ChatGPT Codex backend: accepts Plus/Pro subscription OAuth tokens
+    // (`npm run login -- chatgpt`), speaks the Responses dialect, stream-only.
+    baseUrl: "https://chatgpt.com/backend-api",
+    apiKeyEnv: "CHATGPT_ACCESS_TOKEN", // manual override; normally OAuth
+    streamUsage: true,
+    modelPrefixes: [],
   },
   copilot: {
     name: "copilot",

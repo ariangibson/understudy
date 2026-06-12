@@ -10,6 +10,7 @@ import { saveCredentials, type OAuthCreds } from "./oauth.js";
 
 const PROVIDERS: Record<string, { id: string; label: string }> = {
   anthropic: { id: "anthropic", label: "Anthropic (Claude Pro/Max)" },
+  chatgpt: { id: "openai-codex", label: "ChatGPT (Plus/Pro subscription)" },
   copilot: { id: "github-copilot", label: "GitHub Copilot" },
 };
 
@@ -39,7 +40,9 @@ async function main(): Promise<void> {
   const creds =
     target.id === "anthropic"
       ? await oauth.loginAnthropic(callbacks)
-      : await oauth.loginGitHubCopilot(callbacks);
+      : target.id === "openai-codex"
+        ? await oauth.loginOpenAICodex(callbacks)
+        : await oauth.loginGitHubCopilot(callbacks);
 
   saveCredentials(target.id, creds as OAuthCreds);
   rl.close();

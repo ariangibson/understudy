@@ -51,7 +51,7 @@ Without understudy:                         With understudy:
   ✖ the curtain falls                         ✔ the show goes on
 ```
 
-Your Claude login passes through untouched while Claude performs; the understudy bills its own account — an OpenAI key, or a GitHub Copilot / Claude subscription seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
+Your Claude login passes through untouched while Claude performs; the understudy bills its own account — an API key, or **the ChatGPT / Copilot / Claude subscription you already pay for**, seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
 
 Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects — all five named harnesses verified live against this gateway, tool calls and all.
 
@@ -182,6 +182,8 @@ Three front doors, one stage. Whatever dialect your harness speaks on the way in
 | DeepSeek | deepseek-chat / reasoner | Passthrough |
 | Mistral | Mistral / Codestral | Passthrough |
 | Ollama | Anything local — qwen3, llama, ... | Passthrough; keyless |
+| ChatGPT | GPT-5.x via Plus/Pro subscription | Responses-dialect adapter; OAuth ([season tickets](#season-tickets)) |
+| Copilot | Models on your GitHub Copilot plan | Passthrough; OAuth ([season tickets](#season-tickets)) |
 
 The interesting work is translation: understudy carries request shapes, response shapes, **tool calling in both directions** (`tools`/`tool_calls` ⇄ `tool_use`/`tool_result`), vision blocks, and entire SSE event streams across dialects — re-emitted live, event by event, in whichever format the client is listening for. A Claude Code session can be served by GPT-5.5 speaking fluent Anthropic SSE; a Codex session can be rescued by Claude speaking the Responses event family. Tools included, none the wiser.
 
@@ -230,13 +232,22 @@ The response still echoes the model the client asked for — the harness never k
 
 ## Season tickets
 
-API keys aren't the only way to pay for the show. `npm run login -- anthropic` (Claude Pro/Max) or `npm run login -- copilot` (GitHub Copilot) walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env automatically uses its stored subscription instead — including as a link in the failover chain:
+API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env then uses its stored subscription automatically — including as a link in the failover chain.
 
 ```bash
-FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,copilot/gpt-5-mini
+npm run login -- chatgpt      # ChatGPT Plus/Pro — your GPT-5.x tokens
+npm run login -- anthropic    # Claude Pro/Max
+npm run login -- copilot      # GitHub Copilot
 ```
 
-Two program notes, honestly stated: Anthropic bills third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits), and has changed the rules in this area before — treat subscription auth as best-effort and keep an API key as the durable path. Claude Code users don't need any of this: its own login already passes through `/v1/messages` untouched.
+```bash
+# Claude Code, rescued by the ChatGPT subscription you're already paying for:
+FALLBACK_CHAIN=chatgpt/gpt-5.5 ANTHROPIC_BASE_URL=http://localhost:3001 claude
+```
+
+Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** — no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
+
+One honest program note: Anthropic bills *its* third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits) and has changed the rules in this area before — treat subscription auth as best-effort and keep an API key as the durable path. Native Claude Code users don't need any of this for Claude itself: its own login already passes through `/v1/messages` untouched.
 
 ## Rehearsals are free
 
@@ -306,6 +317,9 @@ flowchart LR
 
     A -->|"Messages API"| Anthropic["Anthropic"]
     O --> OpenAI["OpenAI"] & Google["Google"] & xAI["xAI"] & Groq["Groq"] & DeepSeek["DeepSeek"] & Mistral["Mistral"] & Copilot["Copilot (OAuth)"] & Ollama["Ollama (local)"]
+    Chain --> CG["chatgpt adapter<br/>(Responses ⇄ internal)"]
+    CG -->|"Codex backend"| ChatGPT["ChatGPT (OAuth)"]
+    CG --> Usage
 ```
 
 The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key — it forwards bytes and scans the SSE stream for the usage chunk without buffering. The one major provider that doesn't (Anthropic) gets a real translation layer, written as pure functions with no I/O ([`src/providers/anthropic-translate.ts`](src/providers/anthropic-translate.ts)) so the whole thing is unit-tested without mocks.
@@ -328,7 +342,8 @@ src/
     anthropic.ts               SDK wiring for the translator
     anthropic-passthrough.ts   verbatim Messages forwarding (caching/betas intact)
     messages-translate.ts      pure inbound-Anthropic ⇄ internal translation
-    responses-translate.ts     pure inbound-Responses ⇄ internal translation
+    responses-translate.ts     pure Responses ⇄ internal translation (both ways)
+    chatgpt.ts                 ChatGPT Codex backend (subscription OAuth)
     openai-compat.ts           passthrough for every OpenAI-compatible provider
 ```
 

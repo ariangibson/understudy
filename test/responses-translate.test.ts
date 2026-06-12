@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   chatChunksToResponsesEvents,
+  chatRequestToResponses,
   chatResponseToResponses,
+  responsesEventsToChatChunks,
   responsesToChatRequest,
   type ResponsesRequest,
+  type ResponsesStreamEvent,
 } from "../src/providers/responses-translate.js";
 import type { ChatCompletionChunk, ChatCompletionResponse } from "../src/types.js";
 
@@ -252,5 +255,131 @@ describe("chatChunksToResponsesEvents", () => {
       completion_tokens: 9,
       total_tokens: 59,
     });
+  });
+});
+
+describe("chatRequestToResponses (outbound, ChatGPT backend)", () => {
+  it("maps system to instructions and tool turns to call items", () => {
+    const body = chatRequestToResponses("gpt-5.5", {
+      model: "chatgpt/gpt-5.5",
+      messages: [
+        { role: "system", content: "Be terse." },
+        { role: "user", content: "run it" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "Bash", arguments: '{"cmd":"ls"}' },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: "call_1", content: "a.txt" },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: { name: "Bash", description: "run", parameters: { type: "object" } },
+        },
+      ],
+    }) as {
+      model: string;
+      store: boolean;
+      stream: boolean;
+      instructions: string;
+      input: Array<Record<string, unknown>>;
+      tools: Array<Record<string, unknown>>;
+    };
+
+    expect(body.model).toBe("gpt-5.5");
+    expect(body.store).toBe(false);
+    expect(body.stream).toBe(true); // backend is stream-only
+    expect(body.instructions).toBe("Be terse.");
+    expect(body.input).toEqual([
+      { type: "message", role: "user", content: [{ type: "input_text", text: "run it" }] },
+      { type: "function_call", call_id: "call_1", name: "Bash", arguments: '{"cmd":"ls"}' },
+      { type: "function_call_output", call_id: "call_1", output: "a.txt" },
+    ]);
+    expect(body.tools[0]).toMatchObject({ type: "function", name: "Bash" });
+  });
+
+  it("defaults instructions when no system message exists", () => {
+    const body = chatRequestToResponses("gpt-5.5", {
+      model: "gpt-5.5",
+      messages: [{ role: "user", content: "hi" }],
+    }) as { instructions: string };
+    expect(body.instructions).toBeTruthy();
+  });
+});
+
+describe("responsesEventsToChatChunks (outbound, ChatGPT backend)", () => {
+  async function* events(list: ResponsesStreamEvent[]) {
+    for (const e of list) yield e;
+  }
+
+  it("re-dialects text and a function call into chat chunks", async () => {
+    const collector = { usage: null };
+    const chunks: ChatCompletionChunk[] = [];
+    for await (const c of responsesEventsToChatChunks(
+      events([
+        { type: "response.created", response: { id: "resp_1" } },
+        { type: "response.output_text.delta", delta: "On it." },
+        {
+          type: "response.output_item.added",
+          item: { id: "fc_1", type: "function_call", call_id: "call_9", name: "Bash" },
+        },
+        { type: "response.function_call_arguments.delta", item_id: "fc_1", delta: '{"cmd":' },
+        { type: "response.function_call_arguments.delta", item_id: "fc_1", delta: '"ls"}' },
+        {
+          type: "response.completed",
+          response: {
+            id: "resp_1",
+            status: "completed",
+            usage: { input_tokens: 40, output_tokens: 11, total_tokens: 51 },
+          },
+        },
+      ]),
+      "chatgpt/gpt-5.5",
+      collector,
+    )) {
+      chunks.push(c);
+    }
+
+    expect(chunks[0]?.choices[0]?.delta.role).toBe("assistant");
+    expect(chunks[1]?.choices[0]?.delta.content).toBe("On it.");
+    expect(chunks[2]?.choices[0]?.delta.tool_calls?.[0]).toMatchObject({
+      index: 0,
+      id: "call_9",
+      function: { name: "Bash" },
+    });
+    const args = chunks
+      .flatMap((c) => c.choices[0]?.delta.tool_calls ?? [])
+      .map((tc) => tc.function?.arguments ?? "")
+      .join("");
+    expect(args).toBe('{"cmd":"ls"}');
+
+    const last = chunks.at(-1)!;
+    expect(last.choices[0]?.finish_reason).toBe("tool_calls");
+    expect(last.usage).toEqual({ prompt_tokens: 40, completion_tokens: 11, total_tokens: 51 });
+    expect(collector.usage).toEqual(last.usage);
+  });
+
+  it("throws on response.failed so the stream errors visibly", async () => {
+    const collector = { usage: null };
+    const gen = responsesEventsToChatChunks(
+      events([
+        { type: "response.created", response: { id: "r" } },
+        { type: "response.failed", response: { error: { message: "usage limit" } } },
+      ]),
+      "gpt-5.5",
+      collector,
+    );
+    await expect(async () => {
+      for await (const _ of gen) {
+        // drain
+      }
+    }).rejects.toThrow("usage limit");
   });
 });

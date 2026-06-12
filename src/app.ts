@@ -7,6 +7,7 @@ import { computeCost } from "./pricing.js";
 import { resolveChain, resolveModel, routeKey, type Route } from "./router.js";
 import { parseSSEData, namedEventStream } from "./sse.js";
 import { anthropicChat } from "./providers/anthropic.js";
+import { chatgptChat } from "./providers/chatgpt.js";
 import {
   anthropicCountTokensPassthrough,
   anthropicError,
@@ -246,7 +247,7 @@ export function createApp(): Hono {
         if (route.provider.kind === "anthropic") {
           return anthropicMessagesPassthrough(route.provider, route.model, req, auth);
         }
-        const result = await openaiCompatChat(route.provider, route.model, chatReq());
+        const result = await dispatch(route, chatReq());
         if (result.type === "error") return result;
         if (result.type === "completion") {
           return {
@@ -442,9 +443,14 @@ function recordCacheHit(req: ChatCompletionRequest, hit: ChatCompletionResponse)
 }
 
 function dispatch(route: Route, req: ChatCompletionRequest): Promise<ProviderResult> {
-  return route.provider.kind === "anthropic"
-    ? anthropicChat(route.provider, route.model, req)
-    : openaiCompatChat(route.provider, route.model, req);
+  switch (route.provider.kind) {
+    case "anthropic":
+      return anthropicChat(route.provider, route.model, req);
+    case "chatgpt":
+      return chatgptChat(route.provider, route.model, req);
+    default:
+      return openaiCompatChat(route.provider, route.model, req);
+  }
 }
 
 function record(

@@ -420,3 +420,236 @@ export async function* chatChunksToResponsesEvents(
 export function responsesError(message: string, type = "invalid_request_error"): unknown {
   return { error: { message, type, param: null, code: null } };
 }
+
+// ---------------------------------------------------------------------------
+// Outbound direction: internal chat completions → Responses dialect.
+// Used by the chatgpt adapter, which talks to the ChatGPT Codex backend —
+// the surface that accepts ChatGPT Plus/Pro subscription OAuth tokens.
+
+/**
+ * Flatten an internal request into a Responses-dialect body. System messages
+ * become `instructions` (the backend requires it); assistant tool_calls and
+ * tool results become function_call / function_call_output items.
+ */
+export function chatRequestToResponses(
+  model: string,
+  req: ChatCompletionRequest,
+): Record<string, unknown> {
+  const systemParts: string[] = [];
+  const input: Array<Record<string, unknown>> = [];
+
+  for (const msg of req.messages) {
+    switch (msg.role) {
+      case "system":
+        systemParts.push(flattenContent(msg.content));
+        break;
+      case "user":
+        input.push({
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: flattenContent(msg.content) }],
+        });
+        break;
+      case "assistant": {
+        const text = flattenContent(msg.content);
+        if (text) {
+          input.push({
+            type: "message",
+            role: "assistant",
+            content: [{ type: "output_text", text }],
+          });
+        }
+        for (const call of msg.tool_calls ?? []) {
+          input.push({
+            type: "function_call",
+            call_id: call.id,
+            name: call.function.name,
+            arguments: call.function.arguments,
+          });
+        }
+        break;
+      }
+      case "tool":
+        input.push({
+          type: "function_call_output",
+          call_id: msg.tool_call_id ?? "",
+          output: flattenContent(msg.content),
+        });
+        break;
+    }
+  }
+
+  const body: Record<string, unknown> = {
+    model,
+    store: false,
+    stream: true, // the Codex backend is stream-only; non-stream is assembled
+    instructions: systemParts.filter(Boolean).join("\n\n") || "You are a helpful assistant.",
+    input,
+    tool_choice:
+      req.tool_choice == null
+        ? "auto"
+        : typeof req.tool_choice === "string"
+          ? req.tool_choice
+          : { type: "function", name: req.tool_choice.function.name },
+    parallel_tool_calls: true,
+  };
+
+  // gpt-5.x / o-series reasoning models on this backend reject sampling
+  // params; forward temperature only for models that accept it.
+  if (req.temperature != null && !isReasoningModel(model)) {
+    body.temperature = req.temperature;
+  }
+  if (req.tools?.length) {
+    body.tools = req.tools.map((t) => ({
+      type: "function",
+      name: t.function.name,
+      ...(t.function.description ? { description: t.function.description } : {}),
+      parameters: t.function.parameters ?? { type: "object", properties: {} },
+      strict: false,
+    }));
+  }
+  if (req.reasoning_effort) {
+    body.reasoning = { effort: req.reasoning_effort, summary: "auto" };
+  }
+
+  return body;
+}
+
+/** gpt-5.x and o-series reject temperature/top_p on the Responses backend. */
+function isReasoningModel(model: string): boolean {
+  return /^(gpt-5|o[1-9])/.test(model);
+}
+
+function flattenContent(content: ChatMessage["content"]): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  return content
+    .filter((p) => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
+}
+
+/** Structural subset of the Responses SSE event payloads we consume. */
+export interface ResponsesStreamEvent {
+  type: string;
+  delta?: string;
+  item_id?: string;
+  item?: {
+    id?: string;
+    type?: string;
+    call_id?: string;
+    name?: string;
+  };
+  response?: {
+    id?: string;
+    status?: string;
+    incomplete_details?: { reason?: string } | null;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      total_tokens?: number;
+    } | null;
+    error?: { message?: string } | null;
+  };
+}
+
+/**
+ * Re-dialect a Responses event stream as chat.completion.chunk objects —
+ * the mirror of chatChunksToResponsesEvents. The final chunk carries
+ * finish_reason and usage.
+ */
+export async function* responsesEventsToChatChunks(
+  events: AsyncIterable<ResponsesStreamEvent>,
+  requestedModel: string,
+  collector: ResponsesStreamCollector,
+): AsyncGenerator<ChatCompletionChunk> {
+  const created = Math.floor(Date.now() / 1000);
+  let id = `chatcmpl-${Date.now().toString(36)}`;
+  let started = false;
+  // function_call item_id → chat tool_calls index
+  const toolIndex = new Map<string, number>();
+  let sawToolCalls = false;
+
+  const chunk = (
+    delta: ChatCompletionChunk["choices"][0]["delta"],
+    finish: FinishReason = null,
+    usage?: TokenUsage,
+  ): ChatCompletionChunk => ({
+    id,
+    object: "chat.completion.chunk",
+    created,
+    model: requestedModel,
+    choices: [{ index: 0, delta, finish_reason: finish }],
+    ...(usage ? { usage } : {}),
+  });
+
+  for await (const event of events) {
+    switch (event.type) {
+      case "response.created": {
+        if (event.response?.id) id = `chatcmpl-${event.response.id}`;
+        started = true;
+        yield chunk({ role: "assistant", content: "" });
+        break;
+      }
+
+      case "response.output_text.delta": {
+        if (event.delta) yield chunk({ content: event.delta });
+        break;
+      }
+
+      case "response.output_item.added": {
+        if (event.item?.type === "function_call" && event.item.id) {
+          const idx = toolIndex.size;
+          toolIndex.set(event.item.id, idx);
+          sawToolCalls = true;
+          yield chunk({
+            tool_calls: [
+              {
+                index: idx,
+                id: event.item.call_id ?? event.item.id,
+                type: "function",
+                function: { name: event.item.name ?? "", arguments: "" },
+              },
+            ],
+          });
+        }
+        break;
+      }
+
+      case "response.function_call_arguments.delta": {
+        if (event.delta && event.item_id != null) {
+          const idx = toolIndex.get(event.item_id) ?? 0;
+          yield chunk({
+            tool_calls: [{ index: idx, function: { arguments: event.delta } }],
+          });
+        }
+        break;
+      }
+
+      case "response.completed":
+      case "response.incomplete": {
+        if (!started) yield chunk({ role: "assistant", content: "" });
+        const u = event.response?.usage;
+        const usage: TokenUsage = {
+          prompt_tokens: u?.input_tokens ?? 0,
+          completion_tokens: u?.output_tokens ?? 0,
+          total_tokens: u?.total_tokens ?? (u?.input_tokens ?? 0) + (u?.output_tokens ?? 0),
+        };
+        collector.usage = usage;
+        const finish: FinishReason =
+          event.response?.incomplete_details?.reason === "max_output_tokens"
+            ? "length"
+            : sawToolCalls
+              ? "tool_calls"
+              : "stop";
+        yield chunk({}, finish, usage);
+        break;
+      }
+
+      case "response.failed":
+        throw new Error(
+          event.response?.error?.message ?? "ChatGPT backend reported a failed response",
+        );
+    }
+  }
+}

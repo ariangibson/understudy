@@ -33,6 +33,7 @@ export interface OAuthCreds {
 const OAUTH_IDS: Record<string, string> = {
   anthropic: "anthropic",
   copilot: "github-copilot",
+  chatgpt: "openai-codex",
 };
 
 let cache: { path: string; creds: Record<string, OAuthCreds> } | null = null;

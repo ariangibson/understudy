@@ -111,6 +111,130 @@ describe("gateway with OAuth credentials", () => {
     expect(json.content[0]?.text).toBe("via subscription");
   });
 
+  it("drives the ChatGPT Codex backend with a stored subscription token", async () => {
+    // The access token is a JWT whose claims carry the chatgpt account id.
+    const claims = Buffer.from(
+      JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "acc-42" } }),
+    ).toString("base64url");
+    const jwt = `header.${claims}.sig`;
+    vi.stubEnv(
+      "UNDERSTUDY_AUTH",
+      tempAuthFile({
+        "openai-codex": { refresh: "rt", access: jwt, expires: Date.now() + 60 * 60_000 },
+      }),
+    );
+    vi.stubEnv("USAGE_LOG", `/tmp/llm-proxy-test-${Date.now()}-${Math.random()}.jsonl`);
+    const { createApp } = await import("../src/app.js");
+    const app = createApp();
+
+    const backendSSE = [
+      `event: response.created`,
+      `data: {"type":"response.created","response":{"id":"resp_1","status":"in_progress"}}`,
+      ``,
+      `event: response.output_text.delta`,
+      `data: {"type":"response.output_text.delta","delta":"subscribed hello"}`,
+      ``,
+      `event: response.completed`,
+      `data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","usage":{"input_tokens":7,"output_tokens":3,"total_tokens":10}}}`,
+      ``,
+      ``,
+    ].join("\n");
+
+    const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(url)).toBe("https://chatgpt.com/backend-api/codex/responses");
+      const headers = init?.headers as Record<string, string>;
+      expect(headers.authorization).toBe(`Bearer ${jwt}`);
+      expect(headers["chatgpt-account-id"]).toBe("acc-42");
+      expect(headers["OpenAI-Beta"]).toBe("responses=experimental");
+      const sent = JSON.parse(String(init?.body));
+      expect(sent.stream).toBe(true); // backend is stream-only
+      expect(sent.store).toBe(false);
+      expect(sent.instructions).toBeTruthy();
+      return new Response(backendSSE, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Non-streaming client request: the adapter assembles the stream.
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "chatgpt/gpt-5.5",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      choices: Array<{ message: { content: string } }>;
+      usage: { prompt_tokens: number };
+    };
+    expect(json.choices[0]?.message.content).toBe("subscribed hello");
+    expect(json.usage.prompt_tokens).toBe(7);
+  });
+
+  it("rescues a rate-limited /v1/messages request with the ChatGPT subscription", async () => {
+    const claims = Buffer.from(
+      JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "acc-42" } }),
+    ).toString("base64url");
+    const jwt = `header.${claims}.sig`;
+    vi.stubEnv(
+      "UNDERSTUDY_AUTH",
+      tempAuthFile({
+        "openai-codex": { refresh: "rt", access: jwt, expires: Date.now() + 60 * 60_000 },
+      }),
+    );
+    vi.stubEnv("ANTHROPIC_API_KEY", "sk-ant-key");
+    vi.stubEnv("FALLBACK_CHAIN", "chatgpt/gpt-5.5");
+    vi.stubEnv("USAGE_LOG", `/tmp/llm-proxy-test-${Date.now()}-${Math.random()}.jsonl`);
+    const { createApp } = await import("../src/app.js");
+    const app = createApp();
+
+    const backendSSE = [
+      `data: {"type":"response.created","response":{"id":"resp_1","status":"in_progress"}}`,
+      `data: {"type":"response.output_text.delta","delta":"the show goes on"}`,
+      `data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","usage":{"input_tokens":5,"output_tokens":4,"total_tokens":9}}}`,
+      ``,
+      ``,
+    ].join("\n");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        if (String(url).includes("anthropic.com")) {
+          return new Response("rate limited", { status: 429 });
+        }
+        expect(String(url)).toBe("https://chatgpt.com/backend-api/codex/responses");
+        return new Response(backendSSE, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        });
+      }),
+    );
+
+    const res = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 100,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-understudy-provider")).toBe("chatgpt");
+    expect(res.headers.get("x-understudy-fallback")).toBe("from anthropic/claude-sonnet-4-6");
+    const json = (await res.json()) as {
+      type: string;
+      model: string;
+      content: Array<{ type: string; text: string }>;
+    };
+    expect(json.type).toBe("message"); // Anthropic shape for the Anthropic client
+    expect(json.model).toBe("claude-sonnet-4-6");
+    expect(json.content[0]?.text).toBe("the show goes on");
+  });
+
   it("uses a stored Copilot token with the required headers and derived host", async () => {
     vi.stubEnv(
       "UNDERSTUDY_AUTH",
