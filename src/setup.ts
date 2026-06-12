@@ -298,7 +298,7 @@ export async function runSetup(): Promise<void> {
 
   rl.close();
   console.log("\nPlaces, everyone. Raise the curtain with:");
-  console.log("  npx github:ariangibson/understudy   (or: npm run dev)\n");
+  console.log("  understudy   (or: npm run dev from a clone)\n");
 }
 
 function cryptoRandom(): string {

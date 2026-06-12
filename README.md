@@ -20,6 +20,21 @@
 
 ---
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install.sh | bash
+understudy setup
+```
+
+That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. Then raise the curtain:
+
+```bash
+understudy
+```
+
+Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy setup` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
+
 ## The scene
 
 It's 2 a.m. Your agent is deep in an overnight run - the refactor is *finally* going somewhere. Then:
@@ -57,19 +72,13 @@ Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**
 
 ## Opening night
 
-Two commands, no clone, no config files to hunt down:
+Installed above? You're done - this section is the other ways onto the stage.
 
 ```bash
-npx github:ariangibson/understudy setup   # interactive: keys, fallback chain, harness wiring
-npx github:ariangibson/understudy         # raise the curtain
-```
+npx github:ariangibson/understudy setup   # zero-install run (works on Windows too)
+npx github:ariangibson/understudy
 
-The setup wizard detects which harnesses you have installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - and offers to point each one at the gateway, writing their config files for you (everything it touches is backed up first). It also collects provider keys into `.env` and suggests a fallback chain from whatever you configured.
-
-Prefer containers? The prebuilt image is multi-arch (amd64 + arm64):
-
-```bash
-docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest
+docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest   # prebuilt, multi-arch
 ```
 
 Or from source: `git clone https://github.com/ariangibson/understudy && cd understudy && npm install && npm run setup && npm run dev`.
