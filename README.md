@@ -39,16 +39,12 @@ curl -fsSL https://understudy.cc/install.sh | bash
 ```
 
 ```bash
-understudy setup
-```
-
-That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. (Changed your mind? `understudy disable` un-wires everything in one command - see [Going dark](#going-dark).) Then raise the curtain:
-
-```bash
 understudy
 ```
 
-Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy setup` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
+That's the whole thing. The first run walks you through a short setup - provider keys, a suggested fallback chain, and auto-wiring whichever harnesses it finds installed (Claude Code, Codex, OpenCode, OpenClaw, Hermes), backing up any file it touches - then raises the curtain. Every run after that just starts the gateway. Re-run the wizard any time with `understudy setup`, and un-wire everything in one command with `understudy disable` (see [Going dark](#going-dark)).
+
+Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
 
 Next time Claude hits a rate limit mid-session, the gateway politely benches the Anthropic API, and **gpt-5.5 steps into costume** - same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
 
@@ -71,8 +67,7 @@ Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**
 Installed above? You're done - this section is the other ways onto the stage.
 
 ```bash
-npx github:ariangibson/understudy setup   # zero-install run (works on Windows too)
-npx github:ariangibson/understudy
+npx github:ariangibson/understudy   # zero-install run (works on Windows too; first run sets up)
 
 docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest   # prebuilt, multi-arch
 ```

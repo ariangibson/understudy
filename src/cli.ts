@@ -1,13 +1,15 @@
 /**
  * The understudy command:
  *
- *   understudy                     start the gateway (default)
- *   understudy setup               interactive wizard: keys, chain, harness wiring
+ *   understudy                     start the gateway (runs setup on first run)
+ *   understudy setup               (re-)run the interactive wizard
  *   understudy enable [harness]    route harnesses through the gateway (default: all)
  *   understudy disable [harness]   hand harnesses back their direct connections
  *   understudy status              gateway health + who's routed through it
  *   understudy login <provider>    OAuth login for subscription providers
  */
+
+import { existsSync } from "node:fs";
 
 const command = process.argv[2];
 
@@ -15,6 +17,12 @@ async function main(): Promise<void> {
   switch (command) {
     case undefined:
     case "serve":
+      // First run (no .env yet): walk setup, then raise the curtain. The
+      // launcher runs us from the gateway's home, so .env sits in cwd.
+      if (!existsSync(".env")) {
+        const { runSetup } = await import("./setup.js");
+        await runSetup({ firstRun: true });
+      }
       await import("./index.js");
       return;
     case "setup": {

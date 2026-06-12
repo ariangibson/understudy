@@ -79,6 +79,5 @@ case ":$PATH:" in
     ;;
 esac
 
-step "Installed. Next:"
-printf '\n   understudy setup    # wire up keys, fallback chain, and your harnesses\n'
-printf '   understudy          # raise the curtain\n\n'
+step "Installed. Raise the curtain:"
+printf '\n   understudy          # first run walks you through setup, then serves\n\n'

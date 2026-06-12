@@ -76,7 +76,7 @@ async function confirm(ask: Ask, question: string): Promise<boolean> {
   return /^y(es)?$/i.test((await ask(`${question} [y/N] `)).trim());
 }
 
-export async function runSetup(): Promise<void> {
+export async function runSetup(opts: { firstRun?: boolean } = {}): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   // Read answers off a shared line iterator rather than rl.question(): with
   // piped stdin, lines that arrive while no question is pending would be
@@ -90,7 +90,11 @@ export async function runSetup(): Promise<void> {
   };
   const home = homedir();
 
-  console.log("\n🎭 understudy setup - let's get the stage ready.\n");
+  console.log(
+    opts.firstRun
+      ? "\n🎭 First run - let's get the stage ready before the curtain rises.\n"
+      : "\n🎭 understudy setup - let's get the stage ready.\n",
+  );
 
   // --- provider keys → .env -------------------------------------------
   const envPath = join(process.cwd(), ".env");
@@ -129,6 +133,11 @@ export async function runSetup(): Promise<void> {
     }
   }
 
+  // On first run, make sure the .env exists (seed PORT if nothing else was
+  // entered) so the next launch doesn't mistake itself for a first run too.
+  if (opts.firstRun && !effective.PORT && updates.PORT === undefined) {
+    updates.PORT = String(effective.PORT || 3001);
+  }
   if (Object.keys(updates).length > 0) {
     backup(envPath);
     writeFileSync(envPath, upsertEnvFile(envText, updates));
@@ -168,9 +177,15 @@ export async function runSetup(): Promise<void> {
   }
 
   rl.close();
-  console.log("\nPlaces, everyone. Raise the curtain with:");
-  console.log("  understudy   (or: npm run dev from a clone)");
-  console.log("Pause all routing with `understudy disable`; resume with `understudy enable`.\n");
+  console.log(
+    "\nRe-run this any time with `understudy setup`. Pause all routing with",
+  );
+  console.log("`understudy disable`; resume with `understudy enable`.");
+  if (opts.firstRun) {
+    console.log("\nPlaces, everyone - raising the curtain...\n");
+  } else {
+    console.log("\nRaise the curtain with:  understudy\n");
+  }
 }
 
 function cryptoRandom(): string {
