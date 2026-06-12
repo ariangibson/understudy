@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/banner.jpg" alt="Understudy — when your model can't go on, the show does" width="100%" />
+  <img src="docs/banner.jpg" alt="Understudy - when your model can't go on, the show does" width="100%" />
 </p>
 
 <p align="center"><b>When your model can't go on, the show does.</b></p>
 
 <p align="center">
   The self-hosted LLM gateway that keeps your AI agents running.<br/>
-  Rate limit? Quota? Outage? The understudy steps in mid-performance — your agent never knows.
+  Rate limit? Quota? Outage? The understudy steps in mid-performance - your agent never knows.
 </p>
 
 <p align="center">
@@ -22,10 +22,10 @@
 
 ## The scene
 
-It's 2 a.m. Your agent is deep in an overnight run — the refactor is *finally* going somewhere. Then:
+It's 2 a.m. Your agent is deep in an overnight run - the refactor is *finally* going somewhere. Then:
 
 ```
-RateLimitError: 429 — you have exceeded your quota
+RateLimitError: 429 - you have exceeded your quota
 ```
 
 The harness dies. The run dies. Your flow dies with it. You know this pain. Everyone running agents knows this pain.
@@ -36,24 +36,24 @@ For Claude Code, it's literally two environment variables:
 
 ```bash
 FALLBACK_CHAIN=openai/gpt-5.5 npm run dev        # the understudy waits in the wings
-ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual — until it isn't
+ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual - until it isn't
 ```
 
-Claude hits a rate limit mid-session? The gateway benches it and **gpt-5.5 steps into the costume** — same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
+Claude hits a rate limit mid-session? The gateway benches it and **gpt-5.5 steps into the costume** - same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
 
 ```
 Without understudy:                         With understudy:
 
-  2 a.m. — Claude Code, mid-refactor          2 a.m. — Claude Code, mid-refactor
+  2 a.m. - Claude Code, mid-refactor          2 a.m. - Claude Code, mid-refactor
   claude-opus-4-8 → 429 rate limit            claude-opus-4-8 → 429 rate limit
   ✖ "limit resets at 6 a.m."                  ↳ claude benched · gpt-5.5 takes the stage
   ✖ session stalls, context goes cold         ↳ same session, same tools, no restart
   ✖ the curtain falls                         ✔ the show goes on
 ```
 
-Your Claude login passes through untouched while Claude performs; the understudy bills its own account — an API key, or **the ChatGPT / Copilot / Claude subscription you already pay for**, seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
+Your Claude login passes through untouched while Claude performs; the understudy bills its own account - an API key, or **the ChatGPT / Copilot / Claude subscription you already pay for**, seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
 
-Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects — all five named harnesses verified live against this gateway, tool calls and all.
+Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects - all five named harnesses verified live against this gateway, tool calls and all.
 
 ## Opening night
 
@@ -78,7 +78,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,openai/gpt-5-mini
 ```
 
-That's it. Every request through the gateway — from any client, with **zero client-side changes** — now fails over down that chain whenever its model is unavailable.
+That's it. Every request through the gateway - from any client, with **zero client-side changes** - now fails over down that chain whenever its model is unavailable.
 
 ```bash
 curl http://localhost:3001/v1/chat/completions \
@@ -88,17 +88,17 @@ curl http://localhost:3001/v1/chat/completions \
 
 ## Seat your agent
 
-The gateway speaks all three wire dialects agent harnesses use — OpenAI chat completions, the Anthropic Messages API, and the OpenAI Responses API — so every major harness connects unmodified. Each recipe below was verified live: primary model down, fallback serving, tool calls included.
+The gateway speaks all three wire dialects agent harnesses use - OpenAI chat completions, the Anthropic Messages API, and the OpenAI Responses API - so every major harness connects unmodified. Each recipe below was verified live: primary model down, fallback serving, tool calls included.
 
-**Claude Code** — one environment variable; the harness speaks the Anthropic dialect to `/v1/messages`:
+**Claude Code** - one environment variable; the harness speaks the Anthropic dialect to `/v1/messages`:
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:3001 claude
 ```
 
-When the route is Anthropic itself, requests pass through verbatim — prompt caching, thinking blocks, beta features, and even your Claude Pro/Max login all survive (the gateway forwards your session's OAuth token, so it bills exactly like talking to Anthropic directly). Only when an understudy steps in does translation happen.
+When the route is Anthropic itself, requests pass through verbatim - prompt caching, thinking blocks, beta features, and even your Claude Pro/Max login all survive (the gateway forwards your session's OAuth token, so it bills exactly like talking to Anthropic directly). Only when an understudy steps in does translation happen.
 
-**Codex** — speaks the OpenAI Responses dialect to `/v1/responses`; add a provider to `~/.codex/config.toml`:
+**Codex** - speaks the OpenAI Responses dialect to `/v1/responses`; add a provider to `~/.codex/config.toml`:
 
 ```toml
 model_provider = "understudy"
@@ -109,9 +109,9 @@ base_url = "http://localhost:3001/v1"
 env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key
 ```
 
-This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** — `codex -m "hf:moonshotai/Kimi-K2.6"` runs Kimi from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end.
+This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** - `codex -m "hf:moonshotai/Kimi-K2.6"` runs Kimi from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end.
 
-**OpenCode** — custom provider in `opencode.json` ([docs](https://opencode.ai/docs/providers/)):
+**OpenCode** - custom provider in `opencode.json` ([docs](https://opencode.ai/docs/providers/)):
 
 ```json
 {
@@ -127,7 +127,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
 }
 ```
 
-**OpenClaw** — custom provider in `~/.openclaw/openclaw.json` ([docs](https://docs.openclaw.ai/concepts/model-providers)); use `openai-completions`, or `anthropic-messages` if you want the passthrough fidelity:
+**OpenClaw** - custom provider in `~/.openclaw/openclaw.json` ([docs](https://docs.openclaw.ai/concepts/model-providers)); use `openai-completions`, or `anthropic-messages` if you want the passthrough fidelity:
 
 ```json
 {
@@ -144,7 +144,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
 }
 ```
 
-**Hermes Agent** — set a custom endpoint in the `model:` section of its config ([docs](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
+**Hermes Agent** - set a custom endpoint in the `model:` section of its config ([docs](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
 ```yaml
 model:
@@ -154,7 +154,7 @@ model:
   api_key: your-gateway-key
 ```
 
-**LangChain / LlamaIndex / your own code** — standard OpenAI client, custom base URL:
+**LangChain / LlamaIndex / your own code** - standard OpenAI client, custom base URL:
 
 ```python
 from openai import OpenAI
@@ -172,7 +172,7 @@ Recast the lead by changing one string: `gpt-5.5`, `gemini-3.5-flash`, `grok-4.3
 
 ## The cast
 
-Three front doors, one stage. Whatever dialect your harness speaks on the way in — chat completions, Anthropic Messages, or OpenAI Responses — the router reads the model name (`claude-*` → Anthropic, `gpt-*` → OpenAI, `gemini-*` → Google, ...) or takes explicit `provider/model` form, and any model can answer in the dialect the client expects.
+Three front doors, one stage. Whatever dialect your harness speaks on the way in - chat completions, Anthropic Messages, or OpenAI Responses - the router reads the model name (`claude-*` → Anthropic, `gpt-*` → OpenAI, `gemini-*` → Google, ...) or takes explicit `provider/model` form, and any model can answer in the dialect the client expects.
 
 | Provider | Models | How |
 |---|---|---|
@@ -183,20 +183,20 @@ Three front doors, one stage. Whatever dialect your harness speaks on the way in
 | Groq | Llama 4, etc. (fast inference) | Passthrough |
 | DeepSeek | deepseek-chat / reasoner | Passthrough |
 | Mistral | Mistral / Codestral | Passthrough |
-| Ollama | Anything local — qwen3, llama, ... | Passthrough; keyless |
-| Synthetic | Open weights — Kimi K2.6, GLM 5.1, Qwen, ... (`hf:org/model`) | Passthrough |
+| Ollama | Anything local - qwen3, llama, ... | Passthrough; keyless |
+| Synthetic | Open weights - Kimi K2.6, GLM 5.1, Qwen, ... (`hf:org/model`) | Passthrough |
 | ChatGPT | GPT-5.x via Plus/Pro subscription | Responses-dialect adapter; OAuth ([season tickets](#season-tickets)) |
 | Copilot | Models on your GitHub Copilot plan | Passthrough; OAuth ([season tickets](#season-tickets)) |
 
-The interesting work is translation: understudy carries request shapes, response shapes, **tool calling in both directions** (`tools`/`tool_calls` ⇄ `tool_use`/`tool_result`), vision blocks, and entire SSE event streams across dialects — re-emitted live, event by event, in whichever format the client is listening for. A Claude Code session can be served by GPT-5.5 speaking fluent Anthropic SSE; a Codex session can be rescued by Claude speaking the Responses event family. Tools included, none the wiser.
+The interesting work is translation: understudy carries request shapes, response shapes, **tool calling in both directions** (`tools`/`tool_calls` ⇄ `tool_use`/`tool_result`), vision blocks, and entire SSE event streams across dialects - re-emitted live, event by event, in whichever format the client is listening for. A Claude Code session can be served by GPT-5.5 speaking fluent Anthropic SSE; a Codex session can be rescued by Claude speaking the Responses event family. Tools included, none the wiser.
 
-*One honest program note:* when a request crosses dialects, provider-only extras that the target format can't express (`cache_control` breakpoints, thinking-block replay) are dropped. Same-dialect requests don't pay this tax — an Anthropic-bound request on `/v1/messages` passes through **verbatim**, caching and thinking intact.
+*One honest program note:* when a request crosses dialects, provider-only extras that the target format can't express (`cache_control` breakpoints, thinking-block replay) are dropped. Same-dialect requests don't pay this tax - an Anthropic-bound request on `/v1/messages` passes through **verbatim**, caching and thinking intact.
 
 ## Cue the understudy
 
-Failover triggers on retryable failures — HTTP 429 (rate limit / quota), 5xx, 529 (overloaded), network errors. Non-retryable errors (your malformed request won't get better on another model) are returned honestly.
+Failover triggers on retryable failures - HTTP 429 (rate limit / quota), 5xx, 529 (overloaded), network errors. Non-retryable errors (your malformed request won't get better on another model) are returned honestly.
 
-The circuit breaker is what makes it fast under fire: a failing model is **benched** for `COOLDOWN_S` (default 30s — or whatever `Retry-After` the provider sends), and while benched, every request routes straight to the next model with zero wasted attempts. Benches expire on their own; the lead returns when it's ready. If *every* model in a chain is benched, understudy tries anyway rather than failing instantly.
+The circuit breaker is what makes it fast under fire: a failing model is **benched** for `COOLDOWN_S` (default 30s - or whatever `Retry-After` the provider sends), and while benched, every request routes straight to the next model with zero wasted attempts. Benches expire on their own; the lead returns when it's ready. If *every* model in a chain is benched, understudy tries anyway rather than failing instantly.
 
 ```bash
 # Per-request chain (overrides FALLBACK_CHAIN)
@@ -216,7 +216,7 @@ You always know who's on stage:
 | `x-understudy-fallback: from openai/gpt-5.5` | An understudy performed; this names the lead who couldn't |
 | `GET /health` → `"cooldowns": {"openai/gpt-5.5": 47}` | Who's benched, and for how many more seconds |
 
-Failover applies before first byte; a stream that dies midway isn't silently restarted — your harness's normal retry handles that, and the retry gets the failover.
+Failover applies before first byte; a stream that dies midway isn't silently restarted - your harness's normal retry handles that, and the retry gets the failover.
 
 ### Recasting
 
@@ -231,14 +231,14 @@ MODEL_OVERRIDES="claude-haiku-*=groq/llama-3.3-70b"
 MODEL_OVERRIDES="claude-*=deepseek/deepseek-chat"
 ```
 
-The response still echoes the model the client asked for — the harness never knows the part was recast.
+The response still echoes the model the client asked for - the harness never knows the part was recast.
 
 ## Season tickets
 
-API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env then uses its stored subscription automatically — including as a link in the failover chain.
+API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env then uses its stored subscription automatically - including as a link in the failover chain.
 
 ```bash
-npm run login -- chatgpt      # ChatGPT Plus/Pro — your GPT-5.x tokens
+npm run login -- chatgpt      # ChatGPT Plus/Pro - your GPT-5.x tokens
 npm run login -- anthropic    # Claude Pro/Max
 npm run login -- copilot      # GitHub Copilot
 ```
@@ -248,15 +248,15 @@ npm run login -- copilot      # GitHub Copilot
 FALLBACK_CHAIN=chatgpt/gpt-5.5 ANTHROPIC_BASE_URL=http://localhost:3001 claude
 ```
 
-Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** — no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
+Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** - no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
 
-One honest program note: Anthropic bills *its* third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits) and has changed the rules in this area before — treat subscription auth as best-effort and keep an API key as the durable path. Native Claude Code users don't need any of this for Claude itself: its own login already passes through `/v1/messages` untouched.
+One honest program note: Anthropic bills *its* third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits) and has changed the rules in this area before - treat subscription auth as best-effort and keep an API key as the durable path. Native Claude Code users don't need any of this for Claude itself: its own login already passes through `/v1/messages` untouched.
 
 ## Rehearsals are free
 
-Identical requests within the TTL (default 5 minutes) are served straight from memory — no provider call, no tokens billed, ~0 ms. Agent retries after crashes, eval-suite reruns, and tight dev loops stop re-billing you for lines the model already delivered.
+Identical requests within the TTL (default 5 minutes) are served straight from memory - no provider call, no tokens billed, ~0 ms. Agent retries after crashes, eval-suite reruns, and tight dev loops stop re-billing you for lines the model already delivered.
 
-The cache is stream-aware in both directions: a completed *streamed* response is reassembled from its own SSE chunks to populate the cache, and a cache hit for a `stream: true` request is replayed as synthesized SSE — clients can't tell the difference. The key ignores `stream` and `fallbacks`, so streamed and non-streamed requests for the same prompt share one entry.
+The cache is stream-aware in both directions: a completed *streamed* response is reassembled from its own SSE chunks to populate the cache, and a cache hit for a `stream: true` request is replayed as synthesized SSE - clients can't tell the difference. The key ignores `stream` and `fallbacks`, so streamed and non-streamed requests for the same prompt share one entry.
 
 - Responses carry `x-understudy-cache: hit | miss`
 - Per-request opt-out: send `x-understudy-cache: bypass`
@@ -264,7 +264,7 @@ The cache is stream-aware in both directions: a completed *streamed* response is
 
 ## The box office
 
-Every request is logged (JSONL) with tokens, computed USD cost, latency, and who served it. You finally know what the overnight run cost — and what the cache saved you.
+Every request is logged (JSONL) with tokens, computed USD cost, latency, and who served it. You finally know what the overnight run cost - and what the cache saved you.
 
 ```bash
 curl http://localhost:3001/v1/usage | jq
@@ -285,16 +285,16 @@ curl http://localhost:3001/v1/usage | jq
 }
 ```
 
-Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other providers' rates change often — edit `src/pricing.ts` to match your account. Unknown models record `cost: null`, never a fabricated number.
+Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other providers' rates change often - edit `src/pricing.ts` to match your account. Unknown models record `cost: null`, never a fabricated number.
 
 ## Playbill
 
 | Endpoint | Description |
 |---|---|
-| `POST /v1/chat/completions` | OpenAI chat dialect (OpenCode, Hermes, OpenClaw, LangChain, SDKs) — streaming, tools, vision, failover |
-| `POST /v1/messages` | Anthropic Messages dialect (Claude Code, OpenClaw) — verbatim passthrough to Anthropic, translated failover elsewhere |
+| `POST /v1/chat/completions` | OpenAI chat dialect (OpenCode, Hermes, OpenClaw, LangChain, SDKs) - streaming, tools, vision, failover |
+| `POST /v1/messages` | Anthropic Messages dialect (Claude Code, OpenClaw) - verbatim passthrough to Anthropic, translated failover elsewhere |
 | `POST /v1/messages/count_tokens` | Token counting passthrough (local estimate when no upstream is available) |
-| `POST /v1/responses` | OpenAI Responses dialect (Codex) — translated through the same chain |
+| `POST /v1/responses` | OpenAI Responses dialect (Codex) - translated through the same chain |
 | `GET /v1/models` | Live aggregated model list across all configured providers (5-min cache) |
 | `GET /v1/usage` | Usage, cost, and cache-savings summary |
 | `GET /health` | Status, active providers, current cooldowns (unauthenticated) |
@@ -325,7 +325,7 @@ flowchart LR
     CG --> Usage
 ```
 
-The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key — it forwards bytes and scans the SSE stream for the usage chunk without buffering. The one major provider that doesn't (Anthropic) gets a real translation layer, written as pure functions with no I/O ([`src/providers/anthropic-translate.ts`](src/providers/anthropic-translate.ts)) so the whole thing is unit-tested without mocks.
+The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key - it forwards bytes and scans the SSE stream for the usage chunk without buffering. The one major provider that doesn't (Anthropic) gets a real translation layer, written as pure functions with no I/O ([`src/providers/anthropic-translate.ts`](src/providers/anthropic-translate.ts)) so the whole thing is unit-tested without mocks.
 
 ```
 src/
@@ -352,7 +352,7 @@ src/
 
 ### Director's notes (design decisions)
 
-- **The harness must never need to know.** Failover, cooldowns, and caching are server-side defaults, not client features — because agent frameworks send plain OpenAI requests and can't be taught gateway extensions. Anything requiring a client change is opt-in sugar, never load-bearing.
+- **The harness must never need to know.** Failover, cooldowns, and caching are server-side defaults, not client features - because agent frameworks send plain OpenAI requests and can't be taught gateway extensions. Anything requiring a client change is opt-in sugar, never load-bearing.
 - **OpenAI dialect on the outside.** It's the format every agent framework already speaks. Translating *to* it once at the gateway beats teaching every harness N provider protocols.
 - **Pure translation functions.** Plain objects and async iterables in, plain objects out. Tests feed fake event streams; no network, no SDK mocks.
 - **Stream without buffering.** First tokens reach the agent immediately; usage capture and cache assembly tee SSE bytes through line scanners, never collect the response.
@@ -383,7 +383,7 @@ Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
 
 ```bash
 npm run dev         # watch mode
-npm test            # vitest — translation, routing, failover, cooldowns, cache
+npm test            # vitest - translation, routing, failover, cooldowns, cache
 npm run typecheck   # strict TS, noUncheckedIndexedAccess
 npm run build       # emit dist/
 ```
@@ -392,4 +392,4 @@ CI runs typecheck + tests on every push and PR; merges to `main` build and publi
 
 ## License
 
-MIT — *the show is yours.*
+MIT - *the show is yours.*

@@ -3,6 +3,8 @@ dist
 data
 docs
 test
+scripts
+tmp
 .env
 .env.*
 *.log
