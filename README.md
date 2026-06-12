@@ -20,21 +20,6 @@
 
 ---
 
-## Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install.sh | bash
-understudy setup
-```
-
-That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. Then raise the curtain:
-
-```bash
-understudy
-```
-
-Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy setup` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
-
 ## The scene
 
 It's 2 a.m. Your agent is deep in an overnight run - the refactor is *finally* going somewhere. Then:
@@ -47,14 +32,25 @@ The harness dies. The run dies. Your flow dies with it. You know this pain. Ever
 
 **Understudy is the fix.** Point your agent at one endpoint. When the lead model can't perform, the gateway swaps in the next one mid-run, benches the one that failed, and brings it back when it recovers. No harness restart. No config change. No 2 a.m. page.
 
-For Claude Code, it's literally two environment variables:
+Install:
 
 ```bash
-FALLBACK_CHAIN=openai/gpt-5.5 npm run dev        # the understudy waits in the wings
-ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual - until it isn't
+curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install.sh | bash
 ```
 
-Claude hits a rate limit mid-session? The gateway benches it and **gpt-5.5 steps into the costume** - same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
+```bash
+understudy setup
+```
+
+That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. Then raise the curtain:
+
+```bash
+understudy
+```
+
+Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy setup` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
+
+Next time Claude hits a rate limit mid-session, the gateway politely benches the Anthropic API, and **gpt-5.5 steps into costume** - same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
 
 ```
 Without understudy:                         With understudy:
@@ -106,6 +102,16 @@ The gateway speaks all three wire dialects agent harnesses use - OpenAI chat com
 
 ```bash
 ANTHROPIC_BASE_URL=http://localhost:3001 claude
+```
+
+The whole failover story is literally two environment variables - one on each side:
+
+```bash
+FALLBACK_CHAIN=openai/gpt-5.5 understudy        # the understudy waits in the wings
+```
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual - until it isn't
 ```
 
 When the route is Anthropic itself, requests pass through verbatim - prompt caching, thinking blocks, beta features, and even your Claude Pro/Max login all survive (the gateway forwards your session's OAuth token, so it bills exactly like talking to Anthropic directly). Only when an understudy steps in does translation happen.
