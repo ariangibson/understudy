@@ -22,6 +22,12 @@ export async function openaiCompatChat(
   // Strip gateway extensions; rewrite model to the bare provider name.
   const { fallbacks: _fallbacks, ...rest } = req;
   const body: Record<string, unknown> = { ...rest, model };
+  // OpenAI proper rejects the deprecated max_tokens on current models;
+  // the compatible providers still expect it.
+  if (provider.name === "openai" && body.max_tokens != null && body.max_completion_tokens == null) {
+    body.max_completion_tokens = body.max_tokens;
+    delete body.max_tokens;
+  }
   if (req.stream && provider.streamUsage) {
     body.stream_options = { ...(req.stream_options ?? {}), include_usage: true };
   }

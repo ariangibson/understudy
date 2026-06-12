@@ -111,6 +111,28 @@ describe("chat completions via openai-compatible provider", () => {
     expect(json.choices[0]?.message.content).toBe("hello");
   });
 
+  it("sends max_completion_tokens (not max_tokens) to OpenAI proper", async () => {
+    const app = await freshApp({ OPENAI_API_KEY: "sk-test" });
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const sent = JSON.parse(String(init?.body));
+      expect(sent.max_tokens).toBeUndefined();
+      expect(sent.max_completion_tokens).toBe(1024);
+      return new Response(JSON.stringify(fakeCompletion("gpt-5.5")), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: chatBody("gpt-5.5", { max_tokens: 1024 }),
+    });
+    expect(res.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("falls back to the next model on a retryable provider error", async () => {
     const app = await freshApp({ OPENAI_API_KEY: "sk-test", GROQ_API_KEY: "gk-test" });
     const calls: string[] = [];

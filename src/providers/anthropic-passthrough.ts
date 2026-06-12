@@ -17,7 +17,9 @@ import { oauthApiKey } from "../oauth.js";
 import type { TokenUsage } from "../types.js";
 import type { MessagesRequest } from "./messages-translate.js";
 
-const ANTHROPIC_API = "https://api.anthropic.com";
+/** Overridable for tests and Anthropic-compatible upstream proxies. */
+const ANTHROPIC_API =
+  process.env.UNDERSTUDY_ANTHROPIC_UPSTREAM ?? "https://api.anthropic.com";
 
 export interface ClientAuth {
   /** Raw Authorization header from the client, if any. */
