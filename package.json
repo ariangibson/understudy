@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "docker:build": "docker build -t understudy .",
     "docker:run": "docker run -p 3001:3001 --env-file .env understudy",
-    "login": "tsx src/login.ts"
+    "login": "tsx src/cli.ts login",
+    "setup": "tsx src/cli.ts setup",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",
@@ -61,5 +63,8 @@
   "bugs": {
     "url": "https://github.com/ariangibson/understudy/issues"
   },
-  "homepage": "https://github.com/ariangibson/understudy#readme"
+  "homepage": "https://github.com/ariangibson/understudy#readme",
+  "bin": {
+    "understudy": "bin/understudy.mjs"
+  }
 }

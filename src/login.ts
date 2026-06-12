@@ -1,5 +1,5 @@
 /**
- * Interactive OAuth login:  npm run login -- <anthropic|copilot>
+ * Interactive OAuth login:  understudy login <anthropic|chatgpt|copilot>
  *
  * Stores credentials in data/auth.json (0600). The gateway picks them up
  * automatically whenever the matching provider has no API key env set.
@@ -14,11 +14,10 @@ const PROVIDERS: Record<string, { id: string; label: string }> = {
   copilot: { id: "github-copilot", label: "GitHub Copilot" },
 };
 
-async function main(): Promise<void> {
-  const name = process.argv[2];
+export async function runLogin(name: string | undefined): Promise<void> {
   const target = name ? PROVIDERS[name] : undefined;
   if (!target) {
-    console.error(`usage: npm run login -- <${Object.keys(PROVIDERS).join("|")}>`);
+    console.error(`usage: understudy login <${Object.keys(PROVIDERS).join("|")}>`);
     process.exit(1);
   }
 
@@ -56,7 +55,3 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});

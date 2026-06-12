@@ -57,25 +57,28 @@ Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**
 
 ## Opening night
 
+Two commands, no clone, no config files to hunt down:
+
 ```bash
-git clone https://github.com/ariangibson/understudy
-cd understudy
-npm install
-cp .env.example .env
-npm run dev            # or: docker compose up -d
+npx github:ariangibson/understudy setup   # interactive: keys, fallback chain, harness wiring
+npx github:ariangibson/understudy         # raise the curtain
 ```
 
-Or skip the clone and run the prebuilt image (multi-arch, amd64 + arm64):
+The setup wizard detects which harnesses you have installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - and offers to point each one at the gateway, writing their config files for you (everything it touches is backed up first). It also collects provider keys into `.env` and suggests a fallback chain from whatever you configured.
+
+Prefer containers? The prebuilt image is multi-arch (amd64 + arm64):
 
 ```bash
 docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest
 ```
 
-The two lines in `.env` that change everything:
+Or from source: `git clone https://github.com/ariangibson/understudy && cd understudy && npm install && npm run setup && npm run dev`.
+
+Under it all, the two lines in `.env` that change everything (the wizard writes them for you):
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
-FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,openai/gpt-5-mini
+FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,openai/gpt-5.5
 ```
 
 That's it. Every request through the gateway - from any client, with **zero client-side changes** - now fails over down that chain whenever its model is unavailable.
@@ -88,7 +91,7 @@ curl http://localhost:3001/v1/chat/completions \
 
 ## Seat your agent
 
-The gateway speaks all three wire dialects agent harnesses use - OpenAI chat completions, the Anthropic Messages API, and the OpenAI Responses API - so every major harness connects unmodified. Each recipe below was verified live: primary model down, fallback serving, tool calls included.
+The gateway speaks all three wire dialects agent harnesses use - OpenAI chat completions, the Anthropic Messages API, and the OpenAI Responses API - so every major harness connects unmodified. `understudy setup` wires any of these automatically; the recipes below are for doing it by hand. Each was verified live: primary model down, fallback serving, tool calls included.
 
 **Claude Code** - one environment variable; the harness speaks the Anthropic dialect to `/v1/messages`:
 
@@ -190,11 +193,11 @@ Three front doors, one stage. Whatever dialect your harness speaks on the way in
 
 The interesting work is translation: understudy carries request shapes, response shapes, **tool calling in both directions** (`tools`/`tool_calls` ⇄ `tool_use`/`tool_result`), vision blocks, and entire SSE event streams across dialects - re-emitted live, event by event, in whichever format the client is listening for. A Claude Code session can be served by GPT-5.5 speaking fluent Anthropic SSE; a Codex session can be rescued by Claude speaking the Responses event family. Tools included, none the wiser.
 
-*One honest program note:* when a request crosses dialects, provider-only extras that the target format can't express (`cache_control` breakpoints, thinking-block replay) are dropped. Same-dialect requests don't pay this tax - an Anthropic-bound request on `/v1/messages` passes through **verbatim**, caching and thinking intact.
+*One program note:* when a request crosses dialects, provider-only extras that the target format can't express (`cache_control` breakpoints, thinking-block replay) are dropped. Same-dialect requests don't pay this tax - an Anthropic-bound request on `/v1/messages` passes through **verbatim**, caching and thinking intact.
 
 ## Cue the understudy
 
-Failover triggers on retryable failures - HTTP 429 (rate limit / quota), 5xx, 529 (overloaded), network errors. Non-retryable errors (your malformed request won't get better on another model) are returned honestly.
+Failover triggers on retryable failures - HTTP 429 (rate limit / quota), 5xx, 529 (overloaded), network errors. Non-retryable errors (your malformed request won't get better on another model) are returned as-is.
 
 The circuit breaker is what makes it fast under fire: a failing model is **benched** for `COOLDOWN_S` (default 30s - or whatever `Retry-After` the provider sends), and while benched, every request routes straight to the next model with zero wasted attempts. Benches expire on their own; the lead returns when it's ready. If *every* model in a chain is benched, understudy tries anyway rather than failing instantly.
 
@@ -225,7 +228,7 @@ Some harnesses only ask for fixed model names (Claude Code will only ever reques
 ```bash
 # Send Claude Code's background/haiku traffic to a cheap fast model,
 # while the main model stays on Anthropic with failover.
-MODEL_OVERRIDES="claude-haiku-*=groq/llama-3.3-70b"
+MODEL_OVERRIDES="claude-haiku-*=groq/llama-4-maverick"
 
 # Or route ALL claude-* requests to DeepSeek (a trailing * matches by prefix)
 MODEL_OVERRIDES="claude-*=deepseek/deepseek-chat"
@@ -238,10 +241,12 @@ The response still echoes the model the client asked for - the harness never kno
 API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env then uses its stored subscription automatically - including as a link in the failover chain.
 
 ```bash
-npm run login -- chatgpt      # ChatGPT Plus/Pro - your GPT-5.x tokens
-npm run login -- anthropic    # Claude Pro/Max
-npm run login -- copilot      # GitHub Copilot
+npx github:ariangibson/understudy login chatgpt      # ChatGPT Plus/Pro - your GPT-5.x tokens
+npx github:ariangibson/understudy login anthropic    # Claude Pro/Max
+npx github:ariangibson/understudy login copilot      # GitHub Copilot
 ```
+
+(From a clone, `npm run login -- <provider>` does the same.)
 
 ```bash
 # Claude Code, rescued by the ChatGPT subscription you're already paying for:
@@ -250,7 +255,7 @@ FALLBACK_CHAIN=chatgpt/gpt-5.5 ANTHROPIC_BASE_URL=http://localhost:3001 claude
 
 Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** - no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
 
-One honest program note: Anthropic bills *its* third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits) and has changed the rules in this area before - treat subscription auth as best-effort and keep an API key as the durable path. Native Claude Code users don't need any of this for Claude itself: its own login already passes through `/v1/messages` untouched.
+One program note: Anthropic bills *its* third-party OAuth usage per-token against your subscription's "extra usage" (not your plan limits) and has changed the rules in this area before - treat subscription auth as best-effort and keep an API key as the durable path. Native Claude Code users don't need any of this for Claude itself: its own login already passes through `/v1/messages` untouched.
 
 ## Rehearsals are free
 
@@ -325,7 +330,7 @@ flowchart LR
     CG --> Usage
 ```
 
-The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key - it forwards bytes and scans the SSE stream for the usage chunk without buffering. The one major provider that doesn't (Anthropic) gets a real translation layer, written as pure functions with no I/O ([`src/providers/anthropic-translate.ts`](src/providers/anthropic-translate.ts)) so the whole thing is unit-tested without mocks.
+The design exploits an industry reality: **almost every provider already exposes an OpenAI-compatible endpoint**. Those all share one thin passthrough adapter that differs only in base URL and key - it forwards bytes and scans the SSE stream for the usage chunk without buffering. The two surfaces that don't (Anthropic's Messages API and the ChatGPT Codex backend) get real translation layers, written as pure functions with no I/O so the whole thing is unit-tested without mocks.
 
 ```
 src/
@@ -336,8 +341,10 @@ src/
   config.ts                    provider registry (add a provider in ~8 lines)
   cache.ts                     response cache: keying, LRU+TTL, SSE assembly/replay
   sse.ts                       SSE parsing/encoding for cross-dialect streaming
+  cli.ts                       the understudy command (serve / setup / login)
+  setup.ts                     interactive wizard: keys, chain, harness wiring
   oauth.ts                     subscription credentials (login storage + refresh)
-  login.ts                     `npm run login` OAuth flows
+  login.ts                     OAuth login flows
   pricing.ts                   per-MTok price table → request cost
   usage.ts                     JSONL log + aggregation
   providers/
@@ -353,7 +360,7 @@ src/
 ### Director's notes (design decisions)
 
 - **The harness must never need to know.** Failover, cooldowns, and caching are server-side defaults, not client features - because agent frameworks send plain OpenAI requests and can't be taught gateway extensions. Anything requiring a client change is opt-in sugar, never load-bearing.
-- **OpenAI dialect on the outside.** It's the format every agent framework already speaks. Translating *to* it once at the gateway beats teaching every harness N provider protocols.
+- **One internal dialect.** Every front door translates to chat completions at the edge, and every adapter translates from it. N client dialects x M providers stays N + M, not N x M.
 - **Pure translation functions.** Plain objects and async iterables in, plain objects out. Tests feed fake event streams; no network, no SDK mocks.
 - **Stream without buffering.** First tokens reach the agent immediately; usage capture and cache assembly tee SSE bytes through line scanners, never collect the response.
 - **Fail honestly.** Unknown model → 400 with the exact fix. Missing key → 503 naming the env var. Unknown pricing → `cost: null`. Non-retryable errors are returned, not retried into a different model's mouth.
@@ -371,7 +378,7 @@ All via environment (see `.env.example`):
 | `MODEL_OVERRIDES` | Recast map applied before routing: `pattern=target` pairs, trailing `*` matches by prefix |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `SYNTHETIC_API_KEY` | Enable each provider |
 | `OLLAMA_ENABLED` / `OLLAMA_BASE_URL` | Local models via Ollama |
-| `UNDERSTUDY_AUTH` | OAuth credentials file path (default `data/auth.json`; written by `npm run login`) |
+| `UNDERSTUDY_AUTH` | OAuth credentials file path (default `data/auth.json`; written by `understudy login`) |
 | `CACHE_TTL_S` / `CACHE_MAX_ENTRIES` | Response cache TTL in seconds (default 300; 0 disables) and capacity (default 500) |
 | `DEFAULT_MAX_TOKENS` | Used when clients omit `max_tokens` (default 4096) |
 | `USAGE_LOG` | JSONL path (default `data/usage.jsonl`) |
@@ -383,6 +390,7 @@ Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
 
 ```bash
 npm run dev         # watch mode
+npm run setup       # the interactive wizard, from a clone
 npm test            # vitest - translation, routing, failover, cooldowns, cache
 npm run typecheck   # strict TS, noUncheckedIndexedAccess
 npm run build       # emit dist/
