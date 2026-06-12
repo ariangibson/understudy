@@ -17,16 +17,16 @@ describe("resolveModel", () => {
   });
 
   it("resolves HF-style model ids whose slashes are not provider prefixes", () => {
-    // synthetic.new hosts open models under hf:org/model ids
-    const bare = resolveModel("hf:moonshotai/Kimi-K2.6");
+    // synthetic.new hosts open models under hf:org/model ids and syn: aliases
+    const bare = resolveModel("hf:example-org/some-model");
     expect(bare?.provider.name).toBe("synthetic");
-    expect(bare?.model).toBe("hf:moonshotai/Kimi-K2.6");
+    expect(bare?.model).toBe("hf:example-org/some-model");
 
-    const explicit = resolveModel("synthetic/hf:zai-org/GLM-5.1");
+    const explicit = resolveModel("synthetic/hf:example-org/some-model");
     expect(explicit?.provider.name).toBe("synthetic");
-    expect(explicit?.model).toBe("hf:zai-org/GLM-5.1");
+    expect(explicit?.model).toBe("hf:example-org/some-model");
 
-    expect(resolveModel("syn:large:text")?.provider.name).toBe("synthetic");
+    expect(resolveModel("syn:large:vision")?.provider.name).toBe("synthetic");
   });
 
   it("returns null for unknown models and unknown providers", () => {

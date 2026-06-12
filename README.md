@@ -109,7 +109,7 @@ base_url = "http://localhost:3001/v1"
 env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key
 ```
 
-This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** - `codex -m "hf:moonshotai/Kimi-K2.6"` runs Kimi from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end.
+This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** - `codex -m "syn:large:vision"` runs the current large open-weights model from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end. Prefer synthetic's `syn:` aliases over pinned `hf:org/model` ids - they keep working when the host rotates in newer models.
 
 **OpenCode** - custom provider in `opencode.json` ([docs](https://opencode.ai/docs/providers/)):
 
@@ -184,7 +184,7 @@ Three front doors, one stage. Whatever dialect your harness speaks on the way in
 | DeepSeek | deepseek-chat / reasoner | Passthrough |
 | Mistral | Mistral / Codestral | Passthrough |
 | Ollama | Anything local - qwen3, llama, ... | Passthrough; keyless |
-| Synthetic | Open weights - Kimi K2.6, GLM 5.1, Qwen, ... (`hf:org/model`) | Passthrough |
+| Synthetic | Open weights - Kimi, GLM, Qwen, ... (`syn:` aliases, or pinned `hf:org/model`) | Passthrough |
 | ChatGPT | GPT-5.x via Plus/Pro subscription | Responses-dialect adapter; OAuth ([season tickets](#season-tickets)) |
 | Copilot | Models on your GitHub Copilot plan | Passthrough; OAuth ([season tickets](#season-tickets)) |
 

@@ -19,7 +19,7 @@ export function resolveModel(modelString: string): Route | null {
     const provider = PROVIDERS[providerName];
     if (provider) return { provider, model: modelString.slice(slash + 1) };
     // Not a known provider prefix — the slash may simply be part of the
-    // model id (hf:moonshotai/Kimi-K2.6); fall through to inference.
+    // model id (hf:org/model-name); fall through to inference.
   }
 
   for (const provider of Object.values(PROVIDERS)) {

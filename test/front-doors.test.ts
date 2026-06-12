@@ -306,9 +306,9 @@ describe("/v1/responses — Codex front door", () => {
       const headers = init?.headers as Record<string, string>;
       expect(headers.authorization).toBe("Bearer syn-test");
       const sent = JSON.parse(String(init?.body));
-      expect(sent.model).toBe("hf:moonshotai/Kimi-K2.6");
+      expect(sent.model).toBe("syn:large:vision");
       return new Response(
-        JSON.stringify(openaiCompletion("hf:moonshotai/Kimi-K2.6", "kimi here")),
+        JSON.stringify(openaiCompletion("syn:large:vision", "open model here")),
         { status: 200, headers: { "content-type": "application/json" } },
       );
     });
@@ -317,7 +317,7 @@ describe("/v1/responses — Codex front door", () => {
     const res = await app.request("/v1/responses", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: responsesBody("hf:moonshotai/Kimi-K2.6"),
+      body: responsesBody("syn:large:vision"),
     });
     expect(res.status).toBe(200);
     expect(res.headers.get("x-understudy-provider")).toBe("synthetic");
@@ -326,7 +326,7 @@ describe("/v1/responses — Codex front door", () => {
       output: Array<{ content: Array<{ text: string }> }>;
     };
     expect(json.object).toBe("response");
-    expect(json.output[0]?.content[0]?.text).toBe("kimi here");
+    expect(json.output[0]?.content[0]?.text).toBe("open model here");
   });
 
   it("streams Responses events and fails over across providers", async () => {

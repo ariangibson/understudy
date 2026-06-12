@@ -85,8 +85,9 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
   synthetic: {
     name: "synthetic",
     kind: "openai-compat",
-    // Open-weights hosting (Kimi, GLM, Qwen, DeepSeek...) with HF-style
-    // model ids: hf:moonshotai/Kimi-K2.6, or syn:large:text aliases.
+    // Open-weights hosting (Kimi, GLM, Qwen, DeepSeek...). Prefer the
+    // syn: aliases (syn:large:vision) - they survive model rotations;
+    // pinned hf:org/model ids get deprecated when newer models land.
     baseUrl: "https://api.synthetic.new/openai/v1",
     apiKeyEnv: "SYNTHETIC_API_KEY",
     streamUsage: true,
