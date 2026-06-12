@@ -426,6 +426,7 @@ All via environment. The installed `understudy` command reads `.env` from its ho
 | `CACHE_TTL_S` / `CACHE_MAX_ENTRIES` | Response cache TTL in seconds (default 300; 0 disables) and capacity (default 500) |
 | `DEFAULT_MAX_TOKENS` | Used when clients omit `max_tokens` (default 4096) |
 | `USAGE_LOG` | JSONL path (default `data/usage.jsonl`) |
+| `UNDERSTUDY_ANTHROPIC_UPSTREAM` | Alternate Anthropic-compatible upstream for `/v1/messages` passthrough (testing, Bedrock-style proxies) |
 | `PORT` | Default 3001 |
 
 Adding another OpenAI-compatible provider is one entry in `src/config.ts`.

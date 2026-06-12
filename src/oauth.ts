@@ -16,7 +16,7 @@
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
-export const AUTH_FILE_DEFAULT = "data/auth.json";
+const AUTH_FILE_DEFAULT = "data/auth.json";
 
 function authFilePath(): string {
   return process.env.UNDERSTUDY_AUTH ?? AUTH_FILE_DEFAULT;

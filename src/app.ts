@@ -4,7 +4,7 @@ import { runChain, understudyHeaders, type DispatchError } from "./chain.js";
 import { config, configuredProviders, getApiKey, isConfigured, PROVIDERS } from "./config.js";
 import { CooldownTracker } from "./cooldown.js";
 import { computeCost } from "./pricing.js";
-import { resolveChain, resolveModel, routeKey, type Route } from "./router.js";
+import { resolveChain, resolveModel, type Route } from "./router.js";
 import { parseSSEData, namedEventStream } from "./sse.js";
 import { anthropicChat } from "./providers/anthropic.js";
 import { chatgptChat } from "./providers/chatgpt.js";
@@ -156,7 +156,7 @@ export function createApp(): Hono {
       }
     }
 
-    const resolved = resolveRoutes(c, req, (status, message) =>
+    const resolved = resolveRoutes(req, (status, message) =>
       openaiError(c, status, message),
     );
     if (resolved.response) return resolved.response;
@@ -232,7 +232,7 @@ export function createApp(): Hono {
       isConfigured(route.provider) ||
       (route.provider.kind === "anthropic" && isOAuthBearer(auth.authorization));
 
-    const resolved = resolveRoutes(c, req, (status, message) =>
+    const resolved = resolveRoutes(req, (status, message) =>
       messagesErrorResponse(c, status, message),
     );
     if (resolved.response) return resolved.response;
@@ -323,7 +323,7 @@ export function createApp(): Hono {
       return c.json(responsesError("Missing required field: model") as object, 400);
     }
 
-    const resolved = resolveRoutes(c, req, (status, message) =>
+    const resolved = resolveRoutes(req, (status, message) =>
       c.json(responsesError(message) as object, status),
     );
     if (resolved.response) return resolved.response;
@@ -383,7 +383,6 @@ export function createApp(): Hono {
    * and shape early validation errors in the caller's dialect.
    */
   function resolveRoutes(
-    c: Context,
     req: { model: string; fallbacks?: string[] },
     err: (status: 400, message: string) => Response,
   ): { routes: Route[]; response?: Response } {
