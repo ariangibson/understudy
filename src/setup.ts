@@ -1,19 +1,21 @@
 /**
  * `understudy setup` - interactive first-run wizard. Collects provider keys
- * into .env, picks a fallback chain, and (per harness, opt-in) writes the
- * client config so Claude Code, Codex, OpenCode, and OpenClaw point at the
- * gateway without anyone hand-editing files. Every file it touches gets a
+ * into .env, picks a fallback chain, and (per harness, opt-in) routes the
+ * installed harnesses through the gateway via the same enable functions
+ * that back `understudy enable/disable`. Every file it touches gets a
  * timestamped .bak first.
- *
- * The merge helpers are pure (text/object in, text/object out) so they can
- * be unit-tested; only runSetup does I/O.
  */
 
-import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { createInterface } from "node:readline/promises";
+import {
+  HARNESS_NAMES,
+  HARNESSES,
+  type HarnessContext,
+  type HarnessName,
+} from "./harnesses.js";
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -28,86 +30,6 @@ export function upsertEnvFile(text: string, updates: Record<string, string>): st
       ? out.replace(pattern, line)
       : `${out}${out.endsWith("\n") || out === "" ? "" : "\n"}${line}\n`;
   }
-  return out;
-}
-
-/** Add the understudy provider block to a Codex config.toml (idempotent). */
-export function ensureCodexProvider(
-  toml: string,
-  baseUrl: string,
-  makeDefault: boolean,
-): string {
-  let out = toml;
-  if (!out.includes("[model_providers.understudy]")) {
-    const block = [
-      "",
-      "[model_providers.understudy]",
-      'name = "Understudy gateway"',
-      `base_url = "${baseUrl}/v1"`,
-      'env_key = "UNDERSTUDY_API_KEY"',
-      "",
-    ].join("\n");
-    out = `${out}${out.endsWith("\n") || out === "" ? "" : "\n"}${block}`;
-  }
-  if (makeDefault) {
-    out = /^model_provider\s*=/m.test(out)
-      ? out.replace(/^model_provider\s*=.*$/m, 'model_provider = "understudy"')
-      : `model_provider = "understudy"\n${out}`;
-  }
-  return out;
-}
-
-/** Merge the understudy provider into an OpenCode config object. */
-export function mergeOpenCodeConfig(
-  config: Record<string, unknown> | null,
-  baseUrl: string,
-  apiKey: string,
-): Record<string, unknown> {
-  const out = { ...(config ?? {}) } as Record<string, unknown>;
-  const providers = { ...((out.provider as Record<string, unknown>) ?? {}) };
-  providers.understudy = {
-    npm: "@ai-sdk/openai-compatible",
-    name: "Understudy",
-    options: { baseURL: `${baseUrl}/v1`, apiKey },
-    models: {
-      "claude-sonnet-4-6": { name: "Claude via Understudy" },
-      "gpt-5.5": { name: "GPT via Understudy" },
-    },
-  };
-  out.provider = providers;
-  return out;
-}
-
-/** Merge the understudy provider into an OpenClaw config object. */
-export function mergeOpenClawConfig(
-  config: Record<string, unknown> | null,
-  baseUrl: string,
-  apiKey: string,
-): Record<string, unknown> {
-  const out = { ...(config ?? {}) } as Record<string, unknown>;
-  const models = { ...((out.models as Record<string, unknown>) ?? {}) };
-  const providers = { ...((models.providers as Record<string, unknown>) ?? {}) };
-  providers.understudy = {
-    baseUrl: `${baseUrl}/v1`,
-    apiKey: apiKey || "none",
-    api: "openai-completions",
-    models: [
-      { id: "claude-sonnet-4-6", name: "Claude via Understudy" },
-      { id: "gpt-5.5", name: "GPT via Understudy" },
-    ],
-  };
-  models.providers = providers;
-  out.models = models;
-  return out;
-}
-
-/** Point Claude Code at the gateway via the env block in settings.json. */
-export function mergeClaudeSettings(
-  settings: Record<string, unknown> | null,
-  baseUrl: string,
-): Record<string, unknown> {
-  const out = { ...(settings ?? {}) } as Record<string, unknown>;
-  out.env = { ...((out.env as Record<string, unknown>) ?? {}), ANTHROPIC_BASE_URL: baseUrl };
   return out;
 }
 
@@ -144,26 +66,8 @@ function parseEnvText(text: string): Record<string, string> {
   return vars;
 }
 
-function onPath(cmd: string): boolean {
-  return spawnSync("which", [cmd], { stdio: "ignore" }).status === 0;
-}
-
 function backup(path: string): void {
   if (existsSync(path)) copyFileSync(path, `${path}.bak-${Date.now()}`);
-}
-
-function writeJson(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true });
-  backup(path);
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
-}
-
-function readJson(path: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return null;
-  }
 }
 
 type Ask = (prompt: string) => Promise<string>;
@@ -242,63 +146,31 @@ export async function runSetup(): Promise<void> {
   console.log("  understudy login chatgpt | anthropic | copilot\n");
 
   // --- harness wiring ---------------------------------------------------
-  console.log("Detected harnesses can be pointed at the gateway automatically");
-  console.log("(existing config files are backed up first):\n");
+  console.log("Detected harnesses can be routed through the gateway automatically");
+  console.log("(config files are backed up first; `understudy disable` undoes it):\n");
 
-  if (onPath("claude")) {
-    const path = join(home, ".claude", "settings.json");
-    if (await confirm(ask, `Claude Code: set ANTHROPIC_BASE_URL=${baseUrl} in ${path}?`)) {
-      writeJson(path, mergeClaudeSettings(readJson(path), baseUrl));
-      console.log("  done - every claude session now routes through the gateway");
-    } else {
-      console.log(`  manual: ANTHROPIC_BASE_URL=${baseUrl} claude`);
-    }
-  }
-
-  if (onPath("codex")) {
-    const path = join(process.env.CODEX_HOME ?? join(home, ".codex"), "config.toml");
-    if (await confirm(ask, `Codex: add the understudy provider to ${path}?`)) {
-      const makeDefault = await confirm(ask, "  ...and make it Codex's default provider?");
-      const text = existsSync(path) ? readFileSync(path, "utf8") : "";
-      mkdirSync(dirname(path), { recursive: true });
-      backup(path);
-      writeFileSync(path, ensureCodexProvider(text, baseUrl, makeDefault));
-      if (gatewayKey) console.log(`  remember: export UNDERSTUDY_API_KEY=${gatewayKey}`);
-      console.log("  done");
-    }
-  }
-
-  if (onPath("opencode")) {
-    const path = join(home, ".config", "opencode", "opencode.json");
-    if (await confirm(ask, `OpenCode: add the understudy provider to ${path}?`)) {
-      writeJson(path, mergeOpenCodeConfig(readJson(path), baseUrl, gatewayKey || "none"));
-      console.log("  done - pick understudy/<model> inside opencode");
-    }
-  }
-
-  if (onPath("openclaw")) {
-    const path = join(home, ".openclaw", "openclaw.json");
-    if (await confirm(ask, `OpenClaw: add the understudy provider to ${path}?`)) {
-      writeJson(path, mergeOpenClawConfig(readJson(path), baseUrl, gatewayKey));
-      console.log("  done - models appear as understudy/<model>");
-    }
-  }
-
-  if (onPath("hermes")) {
-    if (await confirm(ask, `Hermes: point model.base_url at ${baseUrl}/v1 (via hermes config set)?`)) {
-      for (const [k, v] of [
-        ["model.base_url", `${baseUrl}/v1`],
-        ["model.provider", "custom"],
-      ]) {
-        spawnSync("hermes", ["config", "set", k!, v!], { stdio: "inherit" });
+  const ctx: HarnessContext = { home, baseUrl, gatewayKey };
+  const labels: Record<HarnessName, string> = {
+    claude: "Claude Code",
+    codex: "Codex",
+    opencode: "OpenCode",
+    openclaw: "OpenClaw",
+    hermes: "Hermes",
+  };
+  for (const name of HARNESS_NAMES) {
+    if (!HARNESSES[name].detect(ctx)) continue;
+    if (await confirm(ask, `${labels[name]}: route through the gateway?`)) {
+      console.log(`  ${HARNESSES[name].enable(ctx)}`);
+      if (name === "codex" && gatewayKey) {
+        console.log(`  remember: export UNDERSTUDY_API_KEY=${gatewayKey}`);
       }
-      console.log("  done");
     }
   }
 
   rl.close();
   console.log("\nPlaces, everyone. Raise the curtain with:");
-  console.log("  understudy   (or: npm run dev from a clone)\n");
+  console.log("  understudy   (or: npm run dev from a clone)");
+  console.log("Pause all routing with `understudy disable`; resume with `understudy enable`.\n");
 }
 
 function cryptoRandom(): string {

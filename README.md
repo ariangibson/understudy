@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install
 understudy setup
 ```
 
-That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. Then raise the curtain:
+That's the whole thing. The wizard collects your provider keys, suggests a fallback chain, and auto-configures whichever harnesses it finds installed - Claude Code, Codex, OpenCode, OpenClaw, Hermes - backing up any file it touches. (Changed your mind? `understudy disable` un-wires everything in one command - see [Going dark](#going-dark).) Then raise the curtain:
 
 ```bash
 understudy
@@ -187,6 +187,28 @@ response = client.chat.completions.create(
 ```
 
 Recast the lead by changing one string: `gpt-5.5`, `gemini-3.5-flash`, `grok-4.3`, `ollama/qwen3`, ...
+
+## Going dark
+
+Routing every agent through one local gateway is a single point of failure - if the gateway dies, your agents die with it. So the off switch is one command, and it works even when the gateway doesn't:
+
+```bash
+understudy disable
+```
+
+Every harness goes back to its direct connection: Codex gets its previous default provider back, Hermes its previous endpoint, Claude Code its own login. Whatever a harness was using before is recorded at enable time and restored exactly.
+
+```bash
+understudy enable
+```
+
+Re-routes everything through the gateway (with a loud warning first if no gateway is answering). Both commands also take a single harness: `understudy disable claude`, `understudy enable codex`, and so on.
+
+```bash
+understudy status
+```
+
+Who's on stage right now: gateway health, live providers, who's benched, and which harnesses are routed through the gateway versus talking to their providers directly.
 
 ## The cast
 
@@ -369,6 +391,7 @@ src/
   sse.ts                       SSE parsing/encoding for cross-dialect streaming
   cli.ts                       the understudy command (serve / setup / login)
   setup.ts                     interactive wizard: keys, chain, harness wiring
+  harnesses.ts                 enable/disable/status - route harnesses, restore them
   oauth.ts                     subscription credentials (login storage + refresh)
   login.ts                     OAuth login flows
   pricing.ts                   per-MTok price table → request cost
