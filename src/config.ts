@@ -1,3 +1,5 @@
+import { hasOAuth } from "./oauth.js";
+
 /**
  * Provider registry. Every provider except Anthropic exposes an
  * OpenAI-compatible endpoint, so they all share one passthrough adapter —
@@ -80,6 +82,16 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     streamUsage: false,
     modelPrefixes: ["llama", "qwen", "phi", "gemma"],
   },
+  copilot: {
+    name: "copilot",
+    kind: "openai-compat",
+    // The real host is embedded in each short-lived OAuth token; this is
+    // the individual-plan default (see oauth.ts copilotBaseUrl).
+    baseUrl: "https://api.individual.githubcopilot.com",
+    apiKeyEnv: "COPILOT_API_KEY",
+    streamUsage: false,
+    modelPrefixes: [],
+  },
 };
 
 export function getApiKey(provider: ProviderConfig): string | undefined {
@@ -89,7 +101,7 @@ export function getApiKey(provider: ProviderConfig): string | undefined {
 export function isConfigured(provider: ProviderConfig): boolean {
   // Ollama is local and keyless — configured if explicitly enabled.
   if (provider.name === "ollama") return process.env.OLLAMA_ENABLED === "true";
-  return Boolean(getApiKey(provider));
+  return Boolean(getApiKey(provider)) || hasOAuth(provider.name);
 }
 
 export function configuredProviders(): ProviderConfig[] {

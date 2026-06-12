@@ -12,10 +12,12 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "docker:build": "docker build -t understudy .",
-    "docker:run": "docker run -p 3001:3001 --env-file .env understudy"
+    "docker:run": "docker run -p 3001:3001 --env-file .env understudy",
+    "login": "tsx src/login.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",
+    "@earendil-works/pi-ai": "^0.79.1",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.6.14"
   },

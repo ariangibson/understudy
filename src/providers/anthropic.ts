@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config, getApiKey, type ProviderConfig } from "../config.js";
+import { oauthApiKey } from "../oauth.js";
 import type { ChatCompletionRequest, ProviderResult, TokenUsage } from "../types.js";
 import {
   fromAnthropicResponse,
@@ -11,10 +12,30 @@ import {
 } from "./anthropic-translate.js";
 
 let client: Anthropic | null = null;
+let oauthClient: { token: string; client: Anthropic } | null = null;
 
-function getClient(provider: ProviderConfig): Anthropic {
-  client ??= new Anthropic({ apiKey: getApiKey(provider) });
-  return client;
+async function getClient(provider: ProviderConfig): Promise<Anthropic> {
+  const apiKey = getApiKey(provider);
+  if (apiKey) return (client ??= new Anthropic({ apiKey }));
+
+  // Subscription OAuth (`understudy login anthropic`): bearer auth plus the
+  // oauth beta marker. Tokens rotate on refresh, so rebuild on change.
+  const token = await oauthApiKey(provider.name).catch(() => null);
+  if (token) {
+    if (oauthClient?.token !== token) {
+      oauthClient = {
+        token,
+        client: new Anthropic({
+          apiKey: null,
+          authToken: token,
+          defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
+        }),
+      };
+    }
+    return oauthClient.client;
+  }
+
+  return (client ??= new Anthropic({ apiKey }));
 }
 
 const encoder = new TextEncoder();
@@ -25,7 +46,7 @@ export async function anthropicChat(
   req: ChatCompletionRequest,
 ): Promise<ProviderResult> {
   const params = toAnthropicParams(model, req, config.defaultMaxTokens);
-  const anthropic = getClient(provider);
+  const anthropic = await getClient(provider);
 
   try {
     if (!req.stream) {

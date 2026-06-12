@@ -13,6 +13,7 @@
  */
 
 import { getApiKey, type ProviderConfig } from "../config.js";
+import { oauthApiKey } from "../oauth.js";
 import type { TokenUsage } from "../types.js";
 import type { MessagesRequest } from "./messages-translate.js";
 
@@ -68,21 +69,29 @@ export async function anthropicMessagesPassthrough(
     if (auth.beta) headers["anthropic-beta"] = auth.beta;
   } else {
     const apiKey = getApiKey(provider);
-    if (!apiKey) {
-      return {
-        type: "error",
-        status: 503,
-        retryable: false,
-        body: anthropicError("api_error", `No ${provider.apiKeyEnv} configured`),
-      };
-    }
-    headers["x-api-key"] = apiKey;
-    // OAuth-only markers would 401 a key-auth request.
     const betas = (auth.beta ?? "")
       .split(",")
       .map((b) => b.trim())
       .filter((b) => b && !b.startsWith("oauth-"));
-    if (betas.length) headers["anthropic-beta"] = betas.join(",");
+
+    if (apiKey) {
+      headers["x-api-key"] = apiKey;
+      // OAuth-only markers would 401 a key-auth request.
+      if (betas.length) headers["anthropic-beta"] = betas.join(",");
+    } else {
+      // Server-side subscription OAuth (`understudy login anthropic`).
+      const token = await oauthApiKey(provider.name).catch(() => null);
+      if (!token) {
+        return {
+          type: "error",
+          status: 503,
+          retryable: false,
+          body: anthropicError("api_error", `No ${provider.apiKeyEnv} configured`),
+        };
+      }
+      headers.authorization = `Bearer ${token}`;
+      headers["anthropic-beta"] = ["oauth-2025-04-20", ...betas].join(",");
+    }
   }
 
   const url = `${ANTHROPIC_API}/v1/messages${auth.betaQuery ? "?beta=true" : ""}`;

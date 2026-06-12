@@ -1,4 +1,5 @@
 import { getApiKey, type ProviderConfig } from "../config.js";
+import { COPILOT_HEADERS, copilotBaseUrl, oauthApiKey } from "../oauth.js";
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
@@ -26,12 +27,24 @@ export async function openaiCompatChat(
   }
 
   const headers: Record<string, string> = { "content-type": "application/json" };
-  const apiKey = getApiKey(provider);
+  let baseUrl = provider.baseUrl;
+  let apiKey = getApiKey(provider);
+  if (!apiKey) {
+    // OAuth subscription fallback (e.g. GitHub Copilot via `understudy login`).
+    const oauthKey = await oauthApiKey(provider.name).catch(() => null);
+    if (oauthKey) {
+      apiKey = oauthKey;
+      if (provider.name === "copilot") {
+        baseUrl = copilotBaseUrl(oauthKey);
+        Object.assign(headers, COPILOT_HEADERS);
+      }
+    }
+  }
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
 
   let res: Response;
   try {
-    res = await fetch(`${provider.baseUrl}/chat/completions`, {
+    res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
