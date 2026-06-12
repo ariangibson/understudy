@@ -44,7 +44,13 @@
     "sse",
     "cost-tracking",
     "openclaw",
-    "hermes-agent"
+    "hermes-agent",
+    "claude-code",
+    "codex",
+    "opencode",
+    "anthropic-messages",
+    "openai-responses",
+    "failover-gateway"
   ],
   "repository": {
     "type": "git",
