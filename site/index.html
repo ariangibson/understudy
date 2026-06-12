@@ -4,68 +4,563 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>understudy - when your model can't go on, the show does</title>
-  <meta name="description" content="The self-hosted LLM gateway that keeps your AI agents running. Rate limit? Outage? The understudy steps in mid-performance." />
+  <meta name="description" content="The self-hosted LLM gateway that keeps your AI agents running. Rate limit? Quota? Outage? The understudy steps in mid-performance - your agent never knows." />
   <meta property="og:title" content="understudy" />
   <meta property="og:description" content="When your model can't go on, the show does." />
   <meta property="og:image" content="https://understudy.cc/banner.jpg" />
+  <meta name="theme-color" content="#0b0b1a" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='4' height='2' fill='%23a31621'/%3E%3Crect x='2' y='2' width='6' height='1' fill='%236e0d12'/%3E%3Crect x='2' y='3' width='6' height='6' fill='%237e8aa0'/%3E%3Crect x='3' y='4' width='4' height='3' fill='%23303a52'/%3E%3Crect x='4' y='5' width='2' height='2' fill='%23f5b301'/%3E%3Crect x='3' y='9' width='4' height='1' fill='%23303a52'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --night: #0b0b1a;
+      --night-2: #11112a;
+      --panel: #131322;
+      --line: #28284a;
+      --curtain: #a31621;
+      --curtain-dk: #6e0d12;
+      --curtain-lt: #c5202c;
+      --gold: #f5b301;
+      --gold-lt: #ffd95c;
+      --gold-dk: #8a6508;
+      --cream: #f3e9d2;
+      --body: #cfc4a8;
+      --dim: #8a8aa8;
+      --err: #ff5d5d;
+      --ok: #6ee76e;
+      --display: "Press Start 2P", monospace;
+      --voice: "VT323", monospace;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
     * { box-sizing: border-box; margin: 0; }
+    html { scroll-behavior: smooth; }
     body {
-      background: #0d0b0e;
-      color: #e8e2d9;
-      font: 16px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      display: flex;
-      min-height: 100vh;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1.25rem;
+      background: var(--night);
+      color: var(--body);
+      font: 22px/1.5 var(--voice);
+      overflow-x: hidden;
     }
-    main { max-width: 680px; width: 100%; }
-    img.banner {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid #2a2430;
-      display: block;
-      margin-bottom: 1.75rem;
+    img { image-rendering: pixelated; }
+    a { color: var(--gold-lt); text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 4px; }
+    ::selection { background: var(--curtain); color: var(--cream); }
+
+    /* ---- the sky ---- */
+    .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+    .stars i { position: absolute; top: 0; left: 0; width: 3px; height: 3px; background: transparent; }
+    .stars i:first-child {
+      box-shadow:
+        4vw 8vh 0 #8d97c9, 11vw 31vh 0 #6a739f, 17vw 14vh 0 #aeb6df, 23vw 64vh 0 #6a739f,
+        9vw 78vh 0 #8d97c9, 28vw 22vh 0 #6a739f, 34vw 9vh 0 #aeb6df, 39vw 49vh 0 #6a739f,
+        46vw 17vh 0 #8d97c9, 52vw 71vh 0 #6a739f, 57vw 33vh 0 #aeb6df, 63vw 12vh 0 #8d97c9,
+        69vw 58vh 0 #6a739f, 74vw 26vh 0 #aeb6df, 81vw 44vh 0 #6a739f, 87vw 15vh 0 #8d97c9,
+        92vw 67vh 0 #6a739f, 96vw 36vh 0 #aeb6df, 6vw 52vh 0 #6a739f, 43vw 88vh 0 #6a739f,
+        77vw 84vh 0 #8d97c9, 60vw 92vh 0 #6a739f, 20vw 93vh 0 #6a739f, 90vw 90vh 0 #8d97c9;
     }
-    h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
-    h1 span { color: #b8860b; }
-    p.tag { color: #9a8f80; margin: 0.35rem 0 1.75rem; }
-    pre {
-      background: #161118;
-      border: 1px solid #2a2430;
-      border-left: 3px solid #8b0000;
-      border-radius: 8px;
-      padding: 0.85rem 1rem;
-      overflow-x: auto;
-      margin: 0 0 0.6rem;
-      font-size: 0.92rem;
+    .stars i:last-child {
+      width: 4px; height: 4px;
+      box-shadow:
+        14vw 42vh 0 var(--gold-lt), 31vw 76vh 0 #d8def5, 49vw 28vh 0 var(--gold-lt),
+        66vw 81vh 0 #d8def5, 84vw 55vh 0 var(--gold-lt), 95vw 11vh 0 #d8def5,
+        8vw 19vh 0 #d8def5, 55vw 7vh 0 var(--gold-lt), 26vw 53vh 0 #d8def5, 72vw 38vh 0 #d8def5;
+      animation: twinkle 2.4s steps(2, jump-none) infinite;
     }
-    pre b { color: #b8860b; font-weight: 600; }
-    p.note { color: #6f665c; font-size: 0.85rem; margin: 1.5rem 0 0; }
-    a { color: #c9a648; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .links { margin-top: 1.75rem; font-size: 0.9rem; }
-    .links a + a { margin-left: 1.25rem; }
+    @keyframes twinkle { 50% { opacity: 0.25; } }
+
+    /* ---- the house: valance + side curtains ---- */
+    .valance {
+      position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 50; pointer-events: none;
+      background: repeating-linear-gradient(90deg,
+        var(--curtain-dk) 0 6px, var(--curtain) 6px 15px, var(--curtain-lt) 15px 19px, var(--curtain) 19px 28px);
+      box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    }
+    .valance::after {
+      content: ""; position: absolute; top: 100%; left: 0; right: 0; height: 16px;
+      background:
+        radial-gradient(circle at 13px 12px, var(--gold) 0 2px, transparent 3px) repeat-x,
+        radial-gradient(circle at 13px 0, #8c1219 0 11px, transparent 12px) repeat-x;
+      background-size: 26px 16px;
+    }
+    .wing {
+      position: fixed; top: 0; bottom: 0; width: clamp(14px, 4vw, 64px); z-index: 40; pointer-events: none;
+      background: repeating-linear-gradient(90deg,
+        var(--curtain-dk) 0 7px, var(--curtain) 7px 16px, var(--curtain-lt) 16px 20px, var(--curtain) 20px 28px);
+    }
+    .wing.left  { left: 0;  box-shadow: inset -14px 0 14px -8px rgba(0,0,0,.6); }
+    .wing.right { right: 0; box-shadow: inset 14px 0 14px -8px rgba(0,0,0,.6); }
+    @media (max-width: 760px) { .wing { display: none; } }
+
+    /* ---- curtain raise on load ---- */
+    .intro { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
+    .intro span {
+      position: absolute; top: 0; bottom: 0; width: 51%;
+      background: repeating-linear-gradient(90deg,
+        var(--curtain-dk) 0 14px, var(--curtain) 14px 34px, var(--curtain-lt) 34px 42px, var(--curtain) 42px 58px);
+      animation: part 1s cubic-bezier(.6,.05,.4,1) .55s forwards;
+    }
+    .intro span:first-child { left: 0; }
+    .intro span:last-child { right: 0; animation-name: part-r; }
+    @keyframes part   { to { transform: translateX(-103%); } }
+    @keyframes part-r { to { transform: translateX(103%); } }
+
+    /* ---- CRT haze ---- */
+    .haze {
+      position: fixed; inset: 0; z-index: 60; pointer-events: none;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px),
+        radial-gradient(120% 90% at 50% 30%, transparent 60%, rgba(0,0,0,.38));
+    }
+
+    main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 clamp(24px, 8vw, 96px); }
+    section { padding: clamp(3.5rem, 8vh, 6rem) 0; }
+
+    /* ---- hero ---- */
+    .hero { padding-top: clamp(5rem, 13vh, 8.5rem); text-align: center; }
+    .hero h1 {
+      font-family: var(--display);
+      font-size: clamp(1.5rem, 6.2vw, 3.4rem);
+      color: var(--cream);
+      letter-spacing: .02em;
+      text-shadow: 4px 4px 0 var(--curtain-dk), 8px 8px 0 rgba(0,0,0,.45);
+      filter: drop-shadow(0 0 22px rgba(245,179,1,.18));
+    }
+    .hero .tagline {
+      font-family: var(--display);
+      font-size: clamp(.55rem, 1.7vw, .8rem);
+      color: var(--gold);
+      margin: 1.4rem auto 0;
+      line-height: 2;
+      letter-spacing: .06em;
+    }
+    .hero .pitch { max-width: 56ch; margin: 1.3rem auto 0; font-size: 1.45rem; color: var(--body); }
+    .hero .pitch em { color: var(--cream); font-style: normal; }
+
+    /* marquee install frame */
+    .marquee { position: relative; margin: 2.6rem auto 0; max-width: 660px; padding: 17px; background: #1d1206; }
+    .marquee::before, .marquee::after {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle, var(--gold-lt) 0 3px, rgba(245,179,1,.18) 3px 4px, transparent 5px);
+      background-size: 26px 26px; background-position: 6px 4px;
+    }
+    .marquee::after { background-position: 19px 17px; animation: chase 1s steps(1) infinite; }
+    .marquee::before { animation: chase 1s steps(1) .5s infinite; }
+    @keyframes chase { 50% { opacity: .2; } }
+    .marquee-inner {
+      position: relative; z-index: 1; background: #120b03; border: 3px solid var(--gold);
+      padding: 1rem 1.1rem; text-align: left;
+    }
+    .cmd-line { display: flex; align-items: center; gap: .75rem; }
+    .cmd-line + .cmd-line { margin-top: .8rem; }
+    .cmd-line code {
+      flex: 1; min-width: 0; font: 600 clamp(.72rem, 2.4vw, .95rem)/1.6 var(--mono); color: var(--cream);
+      overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+    }
+    .cmd-line code b { color: var(--gold-lt); font-weight: 600; }
+    .copy {
+      font-family: var(--display); font-size: .5rem; padding: .55em .8em; cursor: pointer;
+      color: #1d1206; background: var(--gold); border: 0; box-shadow: 3px 3px 0 var(--curtain-dk);
+    }
+    .copy:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--curtain-dk); }
+    .now-showing {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%); z-index: 2;
+      font-family: var(--display); font-size: .5rem; letter-spacing: .15em;
+      background: var(--curtain); color: var(--cream); padding: .5em .9em;
+      box-shadow: 3px 3px 0 rgba(0,0,0,.45);
+    }
+    .hero .meta { margin-top: 1.2rem; font-size: 1.15rem; color: var(--dim); }
+
+    .stage-frame {
+      margin: 3.2rem auto 0; max-width: 760px;
+      border: 4px solid var(--gold-dk); outline: 4px solid #1d1206; background: #1d1206;
+      box-shadow: 0 0 0 4px var(--curtain-dk), 0 26px 60px -18px rgba(245,179,1,.25);
+    }
+    .stage-frame img { display: block; width: 100%; }
+
+    /* ---- act headers ---- */
+    .act { text-align: center; margin-bottom: 2.6rem; }
+    .act .no {
+      font-family: var(--display); font-size: .6rem; color: var(--curtain-lt); letter-spacing: .25em;
+    }
+    .act .no::before { content: "★ "; color: var(--gold); }
+    .act .no::after  { content: " ★"; color: var(--gold); }
+    .act h2 {
+      font-family: var(--display); font-size: clamp(.95rem, 3vw, 1.45rem); color: var(--cream);
+      margin-top: 1rem; line-height: 1.8; text-shadow: 3px 3px 0 rgba(0,0,0,.5);
+    }
+    .lede { max-width: 58ch; margin: 0 auto 2.4rem; text-align: center; font-size: 1.4rem; }
+    .lede em { color: var(--cream); font-style: normal; }
+
+    /* ---- the terminal performance ---- */
+    .crt {
+      max-width: 720px; margin: 0 auto; background: #0d0d16;
+      border: 3px solid var(--line); box-shadow: 10px 10px 0 rgba(0,0,0,.4), 0 0 40px rgba(110,231,110,.05);
+    }
+    .crt-bar {
+      display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+      background: var(--panel); border-bottom: 3px solid var(--line);
+      font-family: var(--display); font-size: .5rem; color: var(--dim);
+    }
+    .crt-bar i { width: 10px; height: 10px; }
+    .crt-bar i:nth-child(1) { background: var(--err); }
+    .crt-bar i:nth-child(2) { background: var(--gold); }
+    .crt-bar i:nth-child(3) { background: var(--ok); }
+    .crt-bar span { margin-left: auto; }
+    .crt pre {
+      padding: 1.1rem 1.2rem 1.3rem; font: .92rem/1.85 var(--mono);
+      min-height: 17.5em; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    }
+    .crt .cur { display: inline-block; width: .6em; height: 1.1em; vertical-align: -0.18em; background: var(--ok); animation: blink 1s steps(1) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .t-cmd  { color: var(--cream); }
+    .t-dim  { color: #70749a; }
+    .t-err  { color: var(--err); }
+    .t-warn { color: var(--gold); }
+    .t-gold { color: var(--gold-lt); text-shadow: 0 0 14px rgba(255,217,92,.5); }
+    .t-ok   { color: var(--ok); }
+    .crt-caption { text-align: center; margin-top: 1.4rem; font-size: 1.3rem; color: var(--dim); }
+    .crt-caption b { color: var(--cream); font-weight: 400; }
+
+    /* ---- act ii: the trick ---- */
+    .duet { max-width: 720px; margin: 0 auto; }
+    .duet pre {
+      background: #120d18; border: 3px solid var(--line); border-left: 6px solid var(--curtain);
+      padding: 1rem 1.2rem; font: .92rem/1.7 var(--mono); color: var(--cream); overflow-x: auto;
+    }
+    .duet pre + pre { margin-top: 1rem; }
+    .duet pre i { color: #70749a; font-style: normal; }
+    .duet pre b { color: var(--gold-lt); font-weight: 600; }
+    .directions { max-width: 720px; margin: 2.6rem auto 0; list-style: none; padding: 0; }
+    .directions li { padding: 1.1rem 0; border-bottom: 3px dotted #2c2c50; font-size: 1.35rem; }
+    .directions li:first-child { border-top: 3px dotted #2c2c50; }
+    .directions .cue { color: var(--gold); display: block; font-size: 1.15rem; letter-spacing: .04em; }
+    .directions b { color: var(--cream); font-weight: 400; }
+
+    /* ---- the cast ---- */
+    .playbill {
+      max-width: 640px; margin: 0 auto; padding: 2.2rem clamp(1.2rem, 4vw, 2.6rem);
+      background: var(--panel); border: 3px solid var(--line);
+      box-shadow: 10px 10px 0 rgba(0,0,0,.4);
+    }
+    .playbill h3 {
+      font-family: var(--display); font-size: .65rem; text-align: center; color: var(--gold);
+      letter-spacing: .2em; margin-bottom: .4rem;
+    }
+    .playbill .sub { text-align: center; color: var(--dim); font-size: 1.15rem; margin-bottom: 1.6rem; }
+    .cast-row { display: flex; align-items: baseline; gap: 10px; padding: .42rem 0; font-size: 1.35rem; }
+    .cast-row .who { color: var(--cream); }
+    .cast-row .dots { flex: 1; border-bottom: 3px dotted #3a3a66; transform: translateY(-5px); }
+    .cast-row .part { color: var(--body); text-align: right; }
+    .cast-row.lead .who::after { content: " ★"; color: var(--gold); }
+    .tickets-note { text-align: center; margin-top: 1.6rem; font-size: 1.2rem; color: var(--dim); }
+
+    .troupe { margin-top: 2.8rem; text-align: center; }
+    .troupe h3 { font-family: var(--display); font-size: .6rem; color: var(--dim); letter-spacing: .2em; margin-bottom: 1.3rem; }
+    .stub-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .stub {
+      position: relative; padding: .45rem 1.4rem; font-size: 1.25rem; color: var(--cream);
+      background: var(--night-2); border: 2px solid #34345e;
+      background-image:
+        radial-gradient(circle 7px at 0 50%, var(--night) 6px, transparent 7px),
+        radial-gradient(circle 7px at 100% 50%, var(--night) 6px, transparent 7px);
+    }
+    .stub::before { content: "🎟 "; font-size: 1rem; }
+
+    /* ---- program notes (ticket stubs) ---- */
+    .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.4rem; max-width: 880px; margin: 0 auto; }
+    .note { display: flex; background: var(--panel); border: 3px solid var(--line); box-shadow: 8px 8px 0 rgba(0,0,0,.4); }
+    .note .rip {
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      font-family: var(--display); font-size: .45rem; letter-spacing: .35em;
+      color: var(--gold-dk); background: #18120a; border-left: 3px dashed var(--line);
+      padding: .9rem .5rem; display: flex; align-items: center; justify-content: center;
+    }
+    .note-body { padding: 1.2rem 1.3rem 1.3rem; flex: 1; }
+    .note h3 { font-family: var(--display); font-size: .62rem; color: var(--gold); line-height: 1.9; margin-bottom: .6rem; }
+    .note p { font-size: 1.3rem; }
+    .note code { font: .82rem var(--mono); color: var(--gold-lt); background: #120b03; padding: .1em .4em; }
+
+    /* ---- curtain call / footer ---- */
+    .finale { text-align: center; position: relative; }
+    .finale .marquee { max-width: 600px; }
+    .encore { margin-top: 1.6rem; font-size: 1.3rem; }
+    footer { position: relative; z-index: 1; margin-top: 4rem; }
+    .footlights { height: 18px; display: flex; justify-content: center; gap: clamp(18px, 5vw, 54px); }
+    .footlights i {
+      width: 16px; height: 16px; background: var(--gold-lt); border-radius: 50% 50% 0 0;
+      box-shadow: 0 -10px 26px 6px rgba(245,179,1,.4); transform: translateY(4px);
+    }
+    .floor {
+      background:
+        repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 26px),
+        repeating-linear-gradient(90deg, #5a3a22 0 90px, #69452a 90px 91px, #61402a 91px 180px, #69452a 180px 181px);
+      border-top: 4px solid #2e1d10;
+      padding: 2.6rem 1.5rem 2.2rem; text-align: center;
+    }
+    .floor .links { display: flex; flex-wrap: wrap; gap: 1.6rem; justify-content: center; font-size: 1.3rem; }
+    .floor .links a { color: var(--cream); text-shadow: 1px 1px 0 rgba(0,0,0,.6); }
+    .floor .mit { margin-top: 1.3rem; font-family: var(--display); font-size: .5rem; color: #c9b896; letter-spacing: .12em; line-height: 2; }
+    .floor .badges { margin-top: .9rem; font-size: 1.05rem; color: #a88f6d; }
+
+    /* the understudy waiting in the wings (optional sprite, see repo notes) */
+    .in-the-wings {
+      position: absolute; right: -10px; bottom: 0; width: clamp(90px, 12vw, 150px); pointer-events: none;
+      filter: drop-shadow(0 6px 12px rgba(0,0,0,.5));
+    }
+    @media (max-width: 900px) { .in-the-wings { display: none; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .intro { display: none; }
+      .marquee::before, .marquee::after, .stars i, .crt .cur { animation: none !important; }
+    }
   </style>
 </head>
 <body>
+
+  <div class="stars" aria-hidden="true"><i></i><i></i></div>
+  <div class="wing left" aria-hidden="true"></div>
+  <div class="wing right" aria-hidden="true"></div>
+  <div class="valance" aria-hidden="true"></div>
+  <div class="intro" aria-hidden="true"><span></span><span></span></div>
+  <div class="haze" aria-hidden="true"></div>
+
   <main>
-    <img class="banner" src="banner.jpg" alt="understudy - when your model can't go on, the show does" />
-    <h1>🎭 understudy <span>- when your model can't go on, the show does.</span></h1>
-    <p class="tag">The self-hosted LLM gateway that keeps your AI agents running. Rate limit? Quota? Outage? The understudy steps in mid-performance - your agent never knows.</p>
 
-    <pre><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</pre>
-    <pre><b>understudy</b></pre>
+    <header class="hero">
+      <h1>UNDERSTUDY</h1>
+      <p class="tagline">WHEN YOUR MODEL CAN'T GO ON,<br/>THE SHOW DOES.</p>
+      <p class="pitch">The self-hosted LLM gateway that keeps your agents running. Rate limit? Quota? Outage? <em>The understudy steps in mid-performance - your agent never knows.</em></p>
 
-    <p class="note">Works with Claude Code, Codex, OpenCode, OpenClaw, Hermes Agent, and anything else that speaks an LLM wire dialect. macOS / Linux, Node 20+.</p>
+      <div class="marquee">
+        <span class="now-showing">NOW SHOWING</span>
+        <div class="marquee-inner">
+          <div class="cmd-line">
+            <code id="install-cmd"><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</code>
+            <button class="copy" data-copy="curl -fsSL https://understudy.cc/install.sh | bash">COPY</button>
+          </div>
+          <div class="cmd-line">
+            <code><b>understudy</b></code>
+            <button class="copy" data-copy="understudy">COPY</button>
+          </div>
+        </div>
+      </div>
+      <p class="meta">macOS / Linux, Node 20+ · Windows: <code style="font: .85rem var(--mono); color: var(--cream);">npx github:ariangibson/understudy</code> · first run sets everything up</p>
 
-    <div class="links">
-      <a href="https://github.com/ariangibson/understudy">GitHub</a>
-      <a href="https://github.com/ariangibson/understudy#the-scene">Docs</a>
-      <a href="https://github.com/ariangibson/understudy/pkgs/container/understudy">Docker</a>
-    </div>
+      <figure class="stage-frame">
+        <img src="banner.jpg" alt="Pixel-art robot taking a bow in a spotlight on a theater stage" width="720" height="354" />
+      </figure>
+    </header>
+
+    <section id="scene">
+      <div class="act">
+        <span class="no">ACT I</span>
+        <h2>2 A.M. THE LEAD FORGETS ITS LINES.</h2>
+      </div>
+      <p class="lede">Your agent is deep in an overnight run - the refactor is <em>finally</em> going somewhere. Then the 429. Without understudy, the curtain falls. With it:</p>
+
+      <div class="crt">
+        <div class="crt-bar" aria-hidden="true"><i></i><i></i><i></i><span>overnight-run.log</span></div>
+        <pre id="perf" aria-label="Terminal recording of an automatic model failover"></pre>
+      </div>
+      <p class="crt-caption">Same session. Same tools. No restart. What your agent notices: <b>nothing.</b></p>
+    </section>
+
+    <section id="trick">
+      <div class="act">
+        <span class="no">ACT II</span>
+        <h2>THE WHOLE TRICK IS TWO ENVIRONMENT VARIABLES.</h2>
+      </div>
+
+      <div class="duet">
+        <pre><b>FALLBACK_CHAIN</b>=openai/gpt-5.5 understudy        <i># the understudy waits in the wings</i></pre>
+        <pre><b>ANTHROPIC_BASE_URL</b>=http://localhost:3001 claude  <i># business as usual - until it isn't</i></pre>
+      </div>
+
+      <ul class="directions">
+        <li><span class="cue">[enter UNDERSTUDY, stage left]</span> 429s, 5xx, outages: the failing model is <b>benched</b>, the next one steps in mid-run, and the lead retakes the stage the moment its cooldown expires.</li>
+        <li><span class="cue">[aside]</span> Three wire dialects in - OpenAI, Anthropic, Responses - any model out. Tool calls, vision, and live SSE streams are <b>translated event by event</b>, in whichever format the client is listening for.</li>
+        <li><span class="cue">[aside]</span> Your <b>ChatGPT, Copilot, or Claude subscription</b> can be the understudy: <code style="font:.85rem var(--mono);color:var(--gold-lt)">understudy login chatgpt</code> and the plan you already pay for finishes the run.</li>
+        <li><span class="cue">[exeunt]</span> <code style="font:.85rem var(--mono);color:var(--gold-lt)">understudy disable</code> restores every harness exactly as it was. <b>The off switch works even when the gateway doesn't.</b></li>
+      </ul>
+    </section>
+
+    <section id="cast">
+      <div class="act">
+        <span class="no">ACT III</span>
+        <h2>THE CAST</h2>
+      </div>
+
+      <div class="playbill">
+        <h3>TONIGHT'S COMPANY</h3>
+        <p class="sub">in order of appearance</p>
+        <div class="cast-row lead"><span class="who">Anthropic</span><span class="dots"></span><span class="part">Claude - Fable, Opus, Sonnet</span></div>
+        <div class="cast-row"><span class="who">OpenAI</span><span class="dots"></span><span class="part">GPT-5.x</span></div>
+        <div class="cast-row"><span class="who">Google</span><span class="dots"></span><span class="part">Gemini 3.x</span></div>
+        <div class="cast-row"><span class="who">xAI</span><span class="dots"></span><span class="part">Grok 4.x</span></div>
+        <div class="cast-row"><span class="who">Groq</span><span class="dots"></span><span class="part">Llama 4, fast inference</span></div>
+        <div class="cast-row"><span class="who">DeepSeek / Mistral</span><span class="dots"></span><span class="part">chat, reasoner, Codestral</span></div>
+        <div class="cast-row"><span class="who">Ollama</span><span class="dots"></span><span class="part">anything local, keyless</span></div>
+        <div class="cast-row"><span class="who">Synthetic</span><span class="dots"></span><span class="part">open weights - Kimi, GLM, Qwen</span></div>
+        <div class="cast-row"><span class="who">ChatGPT / Copilot</span><span class="dots"></span><span class="part">your subscription, via OAuth</span></div>
+        <p class="tickets-note">★ marks the lead. Recast it by changing one string.</p>
+      </div>
+
+      <div class="troupe">
+        <h3>PLAYS WELL WITH</h3>
+        <div class="stub-row">
+          <span class="stub">Claude Code</span>
+          <span class="stub">Codex</span>
+          <span class="stub">OpenCode</span>
+          <span class="stub">OpenClaw</span>
+          <span class="stub">Hermes Agent</span>
+          <span class="stub">LangChain</span>
+          <span class="stub">your own code</span>
+        </div>
+        <p class="tickets-note">All five named harnesses verified live against this gateway - tool calls and all.</p>
+      </div>
+    </section>
+
+    <section id="notes">
+      <div class="act">
+        <span class="no">PROGRAM NOTES</span>
+        <h2>ALSO ON THE BILL</h2>
+      </div>
+
+      <div class="notes">
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>SEASON TICKETS</h3>
+            <p>API keys aren't the only way to pay for the show. One <code>login</code> command seats the subscription you already own as a link in the failover chain.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>REHEARSALS ARE FREE</h3>
+            <p>Identical requests within the TTL replay straight from cache - streamed or not, ~0&nbsp;ms, zero tokens billed. Retries stop re-billing you for lines already delivered.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>THE BOX OFFICE</h3>
+            <p>Every request logged with tokens, USD cost, latency, and who served it. <code>curl /v1/usage</code> and finally know what the overnight run cost.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>NO DRAMA OFFSTAGE</h3>
+            <p>Strict TypeScript, 4 runtime dependencies, no database, pure translation functions tested without mocks. Self-hosted: your keys never leave the building.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="finale" id="encore">
+      <div class="act">
+        <span class="no">CURTAIN CALL</span>
+        <h2>RAISE THE CURTAIN</h2>
+      </div>
+      <div class="marquee">
+        <span class="now-showing">TONIGHT ONLY*</span>
+        <div class="marquee-inner">
+          <div class="cmd-line">
+            <code><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</code>
+            <button class="copy" data-copy="curl -fsSL https://understudy.cc/install.sh | bash">COPY</button>
+          </div>
+        </div>
+      </div>
+      <p class="encore">*and every night after. <a href="https://github.com/ariangibson/understudy">Star it on GitHub</a> if the show was good.</p>
+      <img class="in-the-wings" src="robot-wings.png" alt="" onerror="this.remove()" />
+    </section>
+
   </main>
+
+  <footer>
+    <div class="footlights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="floor">
+      <nav class="links">
+        <a href="https://github.com/ariangibson/understudy">GitHub</a>
+        <a href="https://github.com/ariangibson/understudy#the-scene">The full programme</a>
+        <a href="https://github.com/ariangibson/understudy/pkgs/container/understudy">Docker</a>
+        <a href="https://understudy.cc/install.sh">install.sh</a>
+      </nav>
+      <p class="mit">MIT - THE SHOW IS YOURS.</p>
+      <p class="badges">TypeScript strict · 4 runtime deps · verified live against 5 harnesses</p>
+    </div>
+  </footer>
+
+  <script>
+    // copy buttons
+    document.querySelectorAll(".copy").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(btn.dataset.copy); } catch {}
+        const was = btn.textContent;
+        btn.textContent = "BRAVO!";
+        setTimeout(() => (btn.textContent = was), 1400);
+      });
+    });
+
+    // the performance: a failover, typed live
+    const SCRIPT = [
+      ["t-cmd",  "$ claude"],
+      ["t-dim",  "● claude-opus-4-8 · editing src/auth/session.ts · 02:47 a.m."],
+      ["t-err",  "✖ anthropic → 429 rate_limit_error"],
+      ["t-dim",  '   "your limit resets at 6:00 a.m."'],
+      ["t-warn", "⚑ lead benched · cooldown 47s"],
+      ["t-gold", "★ understudy steps in: openai/gpt-5.5"],
+      ["t-dim",  "● gpt-5.5 answering in fluent Anthropic SSE · tool calls intact"],
+      ["t-dim",  "● claude-opus-4-8 cooldown expired · lead retakes the stage"],
+      ["t-ok",   "✔ the show goes on"],
+    ];
+    const stage = document.getElementById("perf");
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    if (still) {
+      SCRIPT.forEach(([cls, text]) => {
+        const line = document.createElement("span");
+        line.className = cls;
+        line.textContent = text + "\n";
+        stage.append(line);
+      });
+    } else {
+      let playing = false, visible = false;
+      const cursor = document.createElement("span");
+      cursor.className = "cur";
+
+      async function showtime() {
+        if (playing) return;
+        playing = true;
+        while (visible) {
+          stage.textContent = "";
+          stage.append(cursor);
+          for (const [cls, text] of SCRIPT) {
+            if (!visible) break;
+            const line = document.createElement("span");
+            line.className = cls;
+            stage.insertBefore(line, cursor);
+            for (const ch of text) {
+              line.textContent += ch;
+              await wait(ch === " " ? 8 : 16);
+            }
+            stage.insertBefore(document.createTextNode("\n"), cursor);
+            await wait(text.startsWith("✖") ? 700 : text.startsWith("★") ? 550 : 260);
+          }
+          await wait(4200);
+        }
+        playing = false;
+      }
+
+      new IntersectionObserver((entries) => {
+        visible = entries[0].isIntersecting;
+        if (visible) showtime();
+      }, { threshold: 0.35 }).observe(stage);
+    }
+  </script>
 </body>
 </html>

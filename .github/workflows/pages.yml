@@ -30,7 +30,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir -p _site
-          cp site/index.html _site/
+          cp -R site/. _site/
           cp docs/banner.jpg _site/
           cp install.sh _site/install.sh
           cp install.sh _site/install
