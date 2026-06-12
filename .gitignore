@@ -18,3 +18,4 @@ data/
 .vscode/
 .idea/
 *.swp
+tmp/

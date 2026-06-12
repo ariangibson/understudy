@@ -120,4 +120,22 @@ export const config = {
     .filter(Boolean),
   /** Seconds a model stays benched after a retryable failure (circuit breaker). */
   cooldownS: Number(process.env.COOLDOWN_S ?? 30),
+  /**
+   * Model rewrite map applied to the requested model before routing, for
+   * harnesses that only emit fixed model names. Comma-separated
+   * `pattern=target` entries; a trailing `*` makes the pattern a prefix.
+   * Example: MODEL_OVERRIDES="claude-3-5-haiku*=groq/llama-3.3-70b"
+   */
+  modelOverrides: (process.env.MODEL_OVERRIDES ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .flatMap((entry) => {
+      const eq = entry.indexOf("=");
+      if (eq <= 0 || eq === entry.length - 1) {
+        console.warn(`Ignoring malformed MODEL_OVERRIDES entry: "${entry}"`);
+        return [];
+      }
+      return [{ pattern: entry.slice(0, eq).trim(), target: entry.slice(eq + 1).trim() }];
+    }),
 };

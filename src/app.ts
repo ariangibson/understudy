@@ -1,13 +1,37 @@
 import { Hono, type Context } from "hono";
 import { cacheKey, observeSSE, ResponseCache, synthesizeSSE } from "./cache.js";
+import { runChain, understudyHeaders, type DispatchError } from "./chain.js";
 import { config, configuredProviders, getApiKey, isConfigured, PROVIDERS } from "./config.js";
 import { CooldownTracker } from "./cooldown.js";
 import { computeCost } from "./pricing.js";
 import { resolveChain, resolveModel, routeKey, type Route } from "./router.js";
+import { parseSSEData, namedEventStream } from "./sse.js";
 import { anthropicChat } from "./providers/anthropic.js";
+import {
+  anthropicCountTokensPassthrough,
+  anthropicError,
+  anthropicMessagesPassthrough,
+  isOAuthBearer,
+  type ClientAuth,
+  type MessagesResult,
+} from "./providers/anthropic-passthrough.js";
+import {
+  chatChunksToMessagesEvents,
+  chatResponseToMessages,
+  messagesToChatRequest,
+  type MessagesRequest,
+} from "./providers/messages-translate.js";
 import { openaiCompatChat } from "./providers/openai-compat.js";
+import {
+  chatChunksToResponsesEvents,
+  chatResponseToResponses,
+  responsesError,
+  responsesToChatRequest,
+  type ResponsesRequest,
+} from "./providers/responses-translate.js";
 import { recordUsage, summarizeUsage } from "./usage.js";
 import type {
+  ChatCompletionChunk,
   ChatCompletionRequest,
   ChatCompletionResponse,
   ProviderResult,
@@ -25,6 +49,12 @@ export function createApp(): Hono {
     if (config.gatewayKeys.length === 0) return next();
 
     const header = c.req.header("authorization") ?? "";
+    // An Anthropic OAuth bearer is its own credential: the Messages front
+    // door forwards it upstream, so the caller is spending their own
+    // subscription, not the gateway's keys.
+    if (c.req.path.startsWith("/v1/messages") && isOAuthBearer(header)) {
+      return next();
+    }
     const key = header.startsWith("Bearer ")
       ? header.slice(7)
       : c.req.header("x-api-key") ?? "";
@@ -90,7 +120,7 @@ export function createApp(): Hono {
     return c.json(await summarizeUsage(since));
   });
 
-  // --- chat completions -------------------------------------------------
+  // --- chat completions (OpenAI dialect: OpenCode, Hermes, OpenClaw, ...) --
   app.post("/v1/chat/completions", async (c) => {
     let req: ChatCompletionRequest;
     try {
@@ -125,8 +155,237 @@ export function createApp(): Hono {
       }
     }
 
-    // Server-wide FALLBACK_CHAIN applies when the request doesn't bring its
-    // own fallbacks — this is what gives unmodified agents automatic failover.
+    const resolved = resolveRoutes(c, req, (status, message) =>
+      openaiError(c, status, message),
+    );
+    if (resolved.response) return resolved.response;
+
+    const outcome = await runChain(
+      resolved.routes,
+      cooldowns,
+      (route) => dispatch(route, req),
+      (route, started) => record(route, null, started, req.stream === true, "error"),
+    );
+
+    if (!outcome.ok) {
+      if (outcome.reason === "no_keys") {
+        return openaiError(
+          c,
+          503,
+          `No API key configured for the requested provider(s). Set ${outcome.neededEnv.join(" or ")}.`,
+        );
+      }
+      return c.json(outcome.body as object, outcome.status as 400);
+    }
+
+    const { route, primary, started, result } = outcome;
+    const failoverHeaders = understudyHeaders(route, primary);
+
+    if (result.type === "completion") {
+      record(route, result.usage, started, false, "ok");
+      if (key) cache.set(key, result.body);
+      c.header("x-understudy-cache", "miss");
+      for (const [h, v] of Object.entries(failoverHeaders)) c.header(h, v);
+      return c.json(result.body);
+    }
+
+    // stream — record usage once the stream finishes, and tee the SSE
+    // bytes through an assembler so completed streams populate the cache
+    result.usage.then((u) => record(route, u, started, true, "ok"));
+    const body = key
+      ? observeSSE(result.body, (assembled) => cache.set(key, assembled))
+      : result.body;
+    return new Response(body, {
+      status: 200,
+      headers: {
+        ...SSE_HEADERS,
+        "x-understudy-cache": "miss",
+        ...failoverHeaders,
+      },
+    });
+  });
+
+  // --- messages (Anthropic dialect: Claude Code, OpenClaw, ...) ----------
+  app.post("/v1/messages", async (c) => {
+    let req: MessagesRequest;
+    try {
+      req = await c.req.json();
+    } catch {
+      return messagesErrorResponse(c, 400, "Request body must be valid JSON");
+    }
+    if (!req.model || typeof req.model !== "string") {
+      return messagesErrorResponse(c, 400, "Missing required field: model");
+    }
+    if (!Array.isArray(req.messages) || req.messages.length === 0) {
+      return messagesErrorResponse(c, 400, "messages must be a non-empty array");
+    }
+
+    const auth: ClientAuth = {
+      authorization: c.req.header("authorization"),
+      beta: c.req.header("anthropic-beta"),
+      version: c.req.header("anthropic-version"),
+      betaQuery: c.req.query("beta") === "true",
+    };
+    // An OAuth bearer makes the anthropic route usable without a server key.
+    const oauthUsable = (route: Route) =>
+      isConfigured(route.provider) ||
+      (route.provider.kind === "anthropic" && isOAuthBearer(auth.authorization));
+
+    const resolved = resolveRoutes(c, req, (status, message) =>
+      messagesErrorResponse(c, status, message),
+    );
+    if (resolved.response) return resolved.response;
+
+    let translated: ChatCompletionRequest | null = null;
+    const chatReq = () => (translated ??= messagesToChatRequest(req));
+
+    const outcome = await runChain(
+      resolved.routes,
+      cooldowns,
+      async (route): Promise<MessagesResult | DispatchError> => {
+        if (route.provider.kind === "anthropic") {
+          return anthropicMessagesPassthrough(route.provider, route.model, req, auth);
+        }
+        const result = await openaiCompatChat(route.provider, route.model, chatReq());
+        if (result.type === "error") return result;
+        if (result.type === "completion") {
+          return {
+            type: "json",
+            body: chatResponseToMessages(result.body, req.model),
+            usage: result.usage,
+          };
+        }
+        const collector = { usage: null };
+        const events = chatChunksToMessagesEvents(
+          parseSSEData<ChatCompletionChunk>(result.body),
+          req.model,
+          collector,
+        );
+        return { type: "stream", body: namedEventStream(events), usage: result.usage };
+      },
+      (route, started) => record(route, null, started, req.stream === true, "error"),
+      oauthUsable,
+    );
+
+    if (!outcome.ok) {
+      if (outcome.reason === "no_keys") {
+        return messagesErrorResponse(
+          c,
+          503,
+          `No API key configured for the requested provider(s). Set ${outcome.neededEnv.join(" or ")}.`,
+        );
+      }
+      return c.json(toAnthropicErrorBody(outcome.body) as object, outcome.status as 400);
+    }
+
+    const { route, primary, started, result } = outcome;
+    const failoverHeaders = understudyHeaders(route, primary);
+
+    if (result.type === "json") {
+      record(route, result.usage, started, false, "ok");
+      for (const [h, v] of Object.entries(failoverHeaders)) c.header(h, v);
+      return c.json(result.body as object);
+    }
+
+    result.usage.then((u) => record(route, u, started, true, "ok"));
+    return new Response(result.body, {
+      status: 200,
+      headers: { ...SSE_HEADERS, ...failoverHeaders },
+    });
+  });
+
+  app.post("/v1/messages/count_tokens", async (c) => {
+    let body: Record<string, unknown>;
+    try {
+      body = await c.req.json();
+    } catch {
+      return messagesErrorResponse(c, 400, "Request body must be valid JSON");
+    }
+    const auth: ClientAuth = {
+      authorization: c.req.header("authorization"),
+      beta: c.req.header("anthropic-beta"),
+      version: c.req.header("anthropic-version"),
+    };
+    const result = await anthropicCountTokensPassthrough(PROVIDERS.anthropic!, body, auth);
+    return c.json(result.body as object, result.status as 200);
+  });
+
+  // --- responses (OpenAI Responses dialect: Codex) -----------------------
+  app.post("/v1/responses", async (c) => {
+    let req: ResponsesRequest;
+    try {
+      req = await c.req.json();
+    } catch {
+      return c.json(responsesError("Request body must be valid JSON") as object, 400);
+    }
+    if (!req.model || typeof req.model !== "string") {
+      return c.json(responsesError("Missing required field: model") as object, 400);
+    }
+
+    const resolved = resolveRoutes(c, req, (status, message) =>
+      c.json(responsesError(message) as object, status),
+    );
+    if (resolved.response) return resolved.response;
+
+    const chatReq = responsesToChatRequest(req);
+
+    const outcome = await runChain(
+      resolved.routes,
+      cooldowns,
+      (route) => dispatch(route, chatReq),
+      (route, started) => record(route, null, started, req.stream === true, "error"),
+    );
+
+    if (!outcome.ok) {
+      if (outcome.reason === "no_keys") {
+        return c.json(
+          responsesError(
+            `No API key configured for the requested provider(s). Set ${outcome.neededEnv.join(" or ")}.`,
+            "server_error",
+          ) as object,
+          503,
+        );
+      }
+      return c.json(outcome.body as object, outcome.status as 400);
+    }
+
+    const { route, primary, started, result } = outcome;
+    const failoverHeaders = understudyHeaders(route, primary);
+
+    if (result.type === "completion") {
+      record(route, result.usage, started, false, "ok");
+      for (const [h, v] of Object.entries(failoverHeaders)) c.header(h, v);
+      return c.json(chatResponseToResponses(result.body, req.model) as object);
+    }
+
+    result.usage.then((u) => record(route, u, started, true, "ok"));
+    const collector = { usage: null };
+    const events = chatChunksToResponsesEvents(
+      parseSSEData<ChatCompletionChunk>(result.body),
+      req.model,
+      collector,
+    );
+    return new Response(namedEventStream(events), {
+      status: 200,
+      headers: { ...SSE_HEADERS, ...failoverHeaders },
+    });
+  });
+
+  app.notFound((c) =>
+    c.json({ error: { message: `Not found: ${c.req.method} ${c.req.path}`, type: "invalid_request_error" } }, 404),
+  );
+
+  return app;
+
+  /**
+   * Shared front-door preamble: pick the fallback chain, resolve routes,
+   * and shape early validation errors in the caller's dialect.
+   */
+  function resolveRoutes(
+    c: Context,
+    req: { model: string; fallbacks?: string[] },
+    err: (status: 400, message: string) => Response,
+  ): { routes: Route[]; response?: Response } {
     const usingRequestFallbacks = req.fallbacks != null;
     const fallbacks = usingRequestFallbacks
       ? req.fallbacks
@@ -136,98 +395,26 @@ export function createApp(): Hono {
 
     const { routes, unresolved } = resolveChain(req.model, fallbacks);
     if (routes.length === 0) {
-      return openaiError(
-        c,
-        400,
-        `Could not route model "${req.model}". Use "provider/model" (providers: ${Object.keys(PROVIDERS).join(", ")}) or a recognizable model name like gpt-5.5 or claude-sonnet-4-6.`,
-      );
+      return {
+        routes,
+        response: err(
+          400,
+          `Could not route model "${req.model}". Use "provider/model" (providers: ${Object.keys(PROVIDERS).join(", ")}) or a recognizable model name like gpt-5.5 or claude-sonnet-4-6.`,
+        ),
+      };
     }
     if (unresolved.length > 0) {
       if (usingRequestFallbacks) {
-        return openaiError(c, 400, `Unroutable fallback model(s): ${unresolved.join(", ")}`);
+        return {
+          routes,
+          response: err(400, `Unroutable fallback model(s): ${unresolved.join(", ")}`),
+        };
       }
       // A bad FALLBACK_CHAIN entry shouldn't fail user requests.
       console.warn(`Ignoring unroutable FALLBACK_CHAIN entries: ${unresolved.join(", ")}`);
     }
-
-    const usable = routes.filter((r) => isConfigured(r.provider));
-    if (usable.length === 0) {
-      const needed = [...new Set(routes.map((r) => r.provider.apiKeyEnv))];
-      return openaiError(
-        c,
-        503,
-        `No API key configured for the requested provider(s). Set ${needed.join(" or ")}.`,
-      );
-    }
-
-    // Skip models the circuit breaker has benched — unless that would leave
-    // nothing to try, in which case attempting a benched model beats failing.
-    const ready = usable.filter((r) => !cooldowns.isBenched(routeKey(r)));
-    const attempts = ready.length > 0 ? ready : usable;
-    const primary = usable[0]!;
-
-    let lastError: Extract<ProviderResult, { type: "error" }> | null = null;
-
-    for (let i = 0; i < attempts.length; i++) {
-      const route = attempts[i]!;
-      const started = Date.now();
-      const result = await dispatch(route, req);
-
-      if (result.type === "error") {
-        lastError = result;
-        record(route, null, started, req.stream === true, "error");
-        if (result.retryable) {
-          cooldowns.bench(routeKey(route), result.retryAfterS ?? config.cooldownS);
-          if (i < attempts.length - 1) {
-            console.warn(
-              `${routeKey(route)} failed (${result.status}); benched ${result.retryAfterS ?? config.cooldownS}s, failing over`,
-            );
-            continue;
-          }
-        }
-        return c.json(result.body as object, result.status as 400);
-      }
-
-      const failoverHeaders: Record<string, string> = {
-        "x-understudy-provider": route.provider.name,
-        "x-understudy-model": route.model,
-        ...(routeKey(route) !== routeKey(primary)
-          ? { "x-understudy-fallback": `from ${routeKey(primary)}` }
-          : {}),
-      };
-
-      if (result.type === "completion") {
-        record(route, result.usage, started, false, "ok");
-        if (key) cache.set(key, result.body);
-        c.header("x-understudy-cache", "miss");
-        for (const [h, v] of Object.entries(failoverHeaders)) c.header(h, v);
-        return c.json(result.body);
-      }
-
-      // stream — record usage once the stream finishes, and tee the SSE
-      // bytes through an assembler so completed streams populate the cache
-      result.usage.then((u) => record(route, u, started, true, "ok"));
-      const body = key
-        ? observeSSE(result.body, (assembled) => cache.set(key, assembled))
-        : result.body;
-      return new Response(body, {
-        status: 200,
-        headers: {
-          ...SSE_HEADERS,
-          "x-understudy-cache": "miss",
-          ...failoverHeaders,
-        },
-      });
-    }
-
-    return c.json((lastError?.body ?? { error: { message: "All providers failed" } }) as object, (lastError?.status ?? 502) as 502);
-  });
-
-  app.notFound((c) =>
-    c.json({ error: { message: `Not found: ${c.req.method} ${c.req.path}`, type: "invalid_request_error" } }, 404),
-  );
-
-  return app;
+    return { routes };
+  }
 }
 
 const SSE_HEADERS = {
@@ -282,4 +469,21 @@ function record(
 
 function openaiError(c: Context, status: 400 | 401 | 404 | 503, message: string) {
   return c.json({ error: { message, type: "invalid_request_error" } }, status);
+}
+
+function messagesErrorResponse(c: Context, status: 400 | 401 | 404 | 503, message: string) {
+  return c.json(
+    anthropicError(status === 400 ? "invalid_request_error" : "api_error", message) as object,
+    status,
+  );
+}
+
+/** Errors from OpenAI-compat fallbacks need re-dressing in Anthropic shape. */
+function toAnthropicErrorBody(body: unknown): unknown {
+  if (body && typeof body === "object" && (body as { type?: string }).type === "error") {
+    return body;
+  }
+  const message =
+    (body as { error?: { message?: string } })?.error?.message ?? "Provider error";
+  return anthropicError("api_error", message);
 }

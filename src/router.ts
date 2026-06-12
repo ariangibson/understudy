@@ -1,4 +1,4 @@
-import { PROVIDERS, type ProviderConfig } from "./config.js";
+import { config, PROVIDERS, type ProviderConfig } from "./config.js";
 
 export interface Route {
   provider: ProviderConfig;
@@ -34,6 +34,22 @@ export function routeKey(route: Route): string {
 }
 
 /**
+ * Apply the MODEL_OVERRIDES rewrite map to a requested model name. First
+ * matching entry wins; a trailing `*` in the pattern matches by prefix.
+ * This is how fixed-model harnesses (Claude Code always asks for claude-*)
+ * get redirected to a different provider entirely.
+ */
+export function applyModelOverride(model: string): string {
+  for (const { pattern, target } of config.modelOverrides) {
+    const matches = pattern.endsWith("*")
+      ? model.startsWith(pattern.slice(0, -1))
+      : model === pattern;
+    if (matches) return target;
+  }
+  return model;
+}
+
+/**
  * Build the ordered, deduplicated list of routes to attempt: primary first,
  * then fallbacks. Duplicates matter because the server-wide FALLBACK_CHAIN
  * may contain the model a request already asked for.
@@ -45,7 +61,7 @@ export function resolveChain(
   const routes: Route[] = [];
   const unresolved: string[] = [];
   const seen = new Set<string>();
-  for (const m of [model, ...(fallbacks ?? [])]) {
+  for (const m of [applyModelOverride(model), ...(fallbacks ?? [])]) {
     const route = resolveModel(m);
     if (!route) {
       unresolved.push(m);
