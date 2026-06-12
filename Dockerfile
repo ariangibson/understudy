@@ -1,7 +1,8 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json tsconfig.json ./
-RUN npm ci
+# --ignore-scripts: the prepare hook runs tsc, but src/ isn't copied yet
+RUN npm ci --ignore-scripts
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
