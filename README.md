@@ -35,7 +35,7 @@ The harness dies. The run dies. Your flow dies with it. You know this pain. Ever
 Install:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install.sh | bash
+curl -fsSL https://understudy.cc/install.sh | bash
 ```
 
 ```bash

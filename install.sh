@@ -1,7 +1,7 @@
 #!/bin/sh
 # understudy installer (macOS / Linux)
 #
-#   curl -fsSL https://raw.githubusercontent.com/ariangibson/understudy/main/install.sh | bash
+#   curl -fsSL https://understudy.cc/install.sh | bash
 #
 # Installs to ~/.understudy and links an `understudy` command into
 # ~/.local/bin. Re-running updates to the latest main. Requires Node 20+.

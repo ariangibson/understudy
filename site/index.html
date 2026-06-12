@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>understudy - when your model can't go on, the show does</title>
+  <meta name="description" content="The self-hosted LLM gateway that keeps your AI agents running. Rate limit? Outage? The understudy steps in mid-performance." />
+  <meta property="og:title" content="understudy" />
+  <meta property="og:description" content="When your model can't go on, the show does." />
+  <meta property="og:image" content="https://understudy.cc/banner.jpg" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      background: #0d0b0e;
+      color: #e8e2d9;
+      font: 16px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem;
+    }
+    main { max-width: 680px; width: 100%; }
+    img.banner {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2a2430;
+      display: block;
+      margin-bottom: 1.75rem;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; letter-spacing: 0.02em; }
+    h1 span { color: #b8860b; }
+    p.tag { color: #9a8f80; margin: 0.35rem 0 1.75rem; }
+    pre {
+      background: #161118;
+      border: 1px solid #2a2430;
+      border-left: 3px solid #8b0000;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      overflow-x: auto;
+      margin: 0 0 0.6rem;
+      font-size: 0.92rem;
+    }
+    pre b { color: #b8860b; font-weight: 600; }
+    p.note { color: #6f665c; font-size: 0.85rem; margin: 1.5rem 0 0; }
+    a { color: #c9a648; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .links { margin-top: 1.75rem; font-size: 0.9rem; }
+    .links a + a { margin-left: 1.25rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="banner" src="banner.jpg" alt="understudy - when your model can't go on, the show does" />
+    <h1>🎭 understudy <span>- when your model can't go on, the show does.</span></h1>
+    <p class="tag">The self-hosted LLM gateway that keeps your AI agents running. Rate limit? Quota? Outage? The understudy steps in mid-performance - your agent never knows.</p>
+
+    <pre><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</pre>
+    <pre><b>understudy</b> setup</pre>
+
+    <p class="note">Works with Claude Code, Codex, OpenCode, OpenClaw, Hermes Agent, and anything else that speaks an LLM wire dialect. macOS / Linux, Node 20+.</p>
+
+    <div class="links">
+      <a href="https://github.com/ariangibson/understudy">GitHub</a>
+      <a href="https://github.com/ariangibson/understudy#the-scene">Docs</a>
+      <a href="https://github.com/ariangibson/understudy/pkgs/container/understudy">Docker</a>
+    </div>
+  </main>
+</body>
+</html>
