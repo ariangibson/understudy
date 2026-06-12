@@ -238,7 +238,7 @@ Failover applies before first byte; a stream that dies midway isn't silently res
 
 ### Recasting
 
-Some harnesses only ask for fixed model names (Claude Code will only ever request `claude-*`). `MODEL_OVERRIDES` rewrites the requested model before routing, so you can recast any role permanently:
+Some harnesses only ask for fixed model names (Claude Code will only ever request `claude-*`). `MODEL_OVERRIDES` - set in your `.env` like everything else - rewrites the requested model before routing, so you can recast any role permanently:
 
 ```bash
 # Send Claude Code's background/haiku traffic to a cheap fast model,
@@ -253,19 +253,30 @@ The response still echoes the model the client asked for - the harness never kno
 
 ## Season tickets
 
-API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in `data/auth.json`; any provider without an API key env then uses its stored subscription automatically - including as a link in the failover chain.
+API keys aren't the only way to pay for the show. The subscription you already pay for monthly can stand in as an understudy. One `login` command walks an OAuth flow and stores credentials in the gateway's home (`~/.understudy/data/auth.json`); any provider without an API key env then uses its stored subscription automatically - including as a link in the failover chain.
 
 ```bash
-npx github:ariangibson/understudy login chatgpt      # ChatGPT Plus/Pro - your GPT-5.x tokens
-npx github:ariangibson/understudy login anthropic    # Claude Pro/Max
-npx github:ariangibson/understudy login copilot      # GitHub Copilot
+understudy login chatgpt      # ChatGPT Plus/Pro - your GPT-5.x tokens
 ```
 
-(From a clone, `npm run login -- <provider>` does the same.)
+```bash
+understudy login anthropic    # Claude Pro/Max
+```
 
 ```bash
-# Claude Code, rescued by the ChatGPT subscription you're already paying for:
-FALLBACK_CHAIN=chatgpt/gpt-5.5 ANTHROPIC_BASE_URL=http://localhost:3001 claude
+understudy login copilot      # GitHub Copilot
+```
+
+(No install? `npx github:ariangibson/understudy login <provider>`. From a clone: `npm run login -- <provider>`.)
+
+Claude Code, rescued by the ChatGPT subscription you're already paying for:
+
+```bash
+FALLBACK_CHAIN=chatgpt/gpt-5.5 understudy
+```
+
+```bash
+ANTHROPIC_BASE_URL=http://localhost:3001 claude
 ```
 
 Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** - no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
@@ -383,7 +394,7 @@ src/
 
 ## Stage directions
 
-All via environment (see `.env.example`):
+All via environment. The installed `understudy` command reads `.env` from its home, `~/.understudy/.env` (which `understudy setup` writes); a clone reads `./.env` (see `.env.example`):
 
 | Variable | Purpose |
 |---|---|
