@@ -16,6 +16,19 @@ describe("resolveModel", () => {
     expect(resolveModel("deepseek-chat")?.provider.name).toBe("deepseek");
   });
 
+  it("resolves HF-style model ids whose slashes are not provider prefixes", () => {
+    // synthetic.new hosts open models under hf:org/model ids
+    const bare = resolveModel("hf:moonshotai/Kimi-K2.6");
+    expect(bare?.provider.name).toBe("synthetic");
+    expect(bare?.model).toBe("hf:moonshotai/Kimi-K2.6");
+
+    const explicit = resolveModel("synthetic/hf:zai-org/GLM-5.1");
+    expect(explicit?.provider.name).toBe("synthetic");
+    expect(explicit?.model).toBe("hf:zai-org/GLM-5.1");
+
+    expect(resolveModel("syn:large:text")?.provider.name).toBe("synthetic");
+  });
+
   it("returns null for unknown models and unknown providers", () => {
     expect(resolveModel("totally-made-up")).toBeNull();
     expect(resolveModel("nonexistent/gpt-5.5")).toBeNull();

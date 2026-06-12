@@ -82,6 +82,16 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
     streamUsage: false,
     modelPrefixes: ["llama", "qwen", "phi", "gemma"],
   },
+  synthetic: {
+    name: "synthetic",
+    kind: "openai-compat",
+    // Open-weights hosting (Kimi, GLM, Qwen, DeepSeek...) with HF-style
+    // model ids: hf:moonshotai/Kimi-K2.6, or syn:large:text aliases.
+    baseUrl: "https://api.synthetic.new/openai/v1",
+    apiKeyEnv: "SYNTHETIC_API_KEY",
+    streamUsage: true,
+    modelPrefixes: ["hf:", "syn:"],
+  },
   chatgpt: {
     name: "chatgpt",
     kind: "chatgpt",

@@ -109,6 +109,8 @@ base_url = "http://localhost:3001/v1"
 env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key
 ```
 
+This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** — `codex -m "hf:moonshotai/Kimi-K2.6"` runs Kimi from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end.
+
 **OpenCode** — custom provider in `opencode.json` ([docs](https://opencode.ai/docs/providers/)):
 
 ```json
@@ -182,6 +184,7 @@ Three front doors, one stage. Whatever dialect your harness speaks on the way in
 | DeepSeek | deepseek-chat / reasoner | Passthrough |
 | Mistral | Mistral / Codestral | Passthrough |
 | Ollama | Anything local — qwen3, llama, ... | Passthrough; keyless |
+| Synthetic | Open weights — Kimi K2.6, GLM 5.1, Qwen, ... (`hf:org/model`) | Passthrough |
 | ChatGPT | GPT-5.x via Plus/Pro subscription | Responses-dialect adapter; OAuth ([season tickets](#season-tickets)) |
 | Copilot | Models on your GitHub Copilot plan | Passthrough; OAuth ([season tickets](#season-tickets)) |
 
@@ -366,7 +369,7 @@ All via environment (see `.env.example`):
 | `COOLDOWN_S` | Circuit-breaker bench time in seconds (default 30; provider `Retry-After` wins) |
 | `GATEWAY_API_KEYS` | Comma-separated client keys. Empty = open (localhost only!) |
 | `MODEL_OVERRIDES` | Recast map applied before routing: `pattern=target` pairs, trailing `*` matches by prefix |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY` | Enable each provider |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `XAI_API_KEY`, `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `MISTRAL_API_KEY`, `SYNTHETIC_API_KEY` | Enable each provider |
 | `OLLAMA_ENABLED` / `OLLAMA_BASE_URL` | Local models via Ollama |
 | `UNDERSTUDY_AUTH` | OAuth credentials file path (default `data/auth.json`; written by `npm run login`) |
 | `CACHE_TTL_S` / `CACHE_MAX_ENTRIES` | Response cache TTL in seconds (default 300; 0 disables) and capacity (default 500) |

@@ -299,6 +299,36 @@ describe("/v1/responses — Codex front door", () => {
     expect(json.output[0]?.content[0]?.text).toBe("hi there");
   });
 
+  it("serves Codex from a chat-completions-only host (synthetic.new)", async () => {
+    const app = await freshApp({ SYNTHETIC_API_KEY: "syn-test" });
+    const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(url)).toBe("https://api.synthetic.new/openai/v1/chat/completions");
+      const headers = init?.headers as Record<string, string>;
+      expect(headers.authorization).toBe("Bearer syn-test");
+      const sent = JSON.parse(String(init?.body));
+      expect(sent.model).toBe("hf:moonshotai/Kimi-K2.6");
+      return new Response(
+        JSON.stringify(openaiCompletion("hf:moonshotai/Kimi-K2.6", "kimi here")),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await app.request("/v1/responses", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: responsesBody("hf:moonshotai/Kimi-K2.6"),
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-understudy-provider")).toBe("synthetic");
+    const json = (await res.json()) as {
+      object: string;
+      output: Array<{ content: Array<{ text: string }> }>;
+    };
+    expect(json.object).toBe("response");
+    expect(json.output[0]?.content[0]?.text).toBe("kimi here");
+  });
+
   it("streams Responses events and fails over across providers", async () => {
     const app = await freshApp({
       OPENAI_API_KEY: "sk-test",
