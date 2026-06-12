@@ -42,13 +42,16 @@ ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual — until i
 Claude hits a rate limit mid-session? The gateway benches it and **gpt-5.5 steps into the costume** — same session, same tools, the reply streamed back in Claude's own dialect. Your run keeps editing files and executing commands on the fallback model, and the lead retakes the stage the moment the bench expires.
 
 ```
-Without understudy:                    With understudy:
+Without understudy:                         With understudy:
 
-  claude-opus-4-8 → 429                  claude-opus-4-8 → 429
-  ✖ session dead                         ↳ benched 60s · the understudy steps in
-  ✖ reconfigure harness                  ↳ request served · the loop continues
-  ✖ flow lost                            ✔ the show goes on
+  2 a.m. — Claude Code, mid-refactor          2 a.m. — Claude Code, mid-refactor
+  claude-opus-4-8 → 429 rate limit            claude-opus-4-8 → 429 rate limit
+  ✖ "limit resets at 6 a.m."                  ↳ claude benched · gpt-5.5 takes the stage
+  ✖ session stalls, context goes cold         ↳ same session, same tools, no restart
+  ✖ the curtain falls                         ✔ the show goes on
 ```
+
+Your Claude login passes through untouched while Claude performs; the understudy bills its own account — an OpenAI key, or a GitHub Copilot / Claude subscription seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
 
 Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects — all five named harnesses verified live against this gateway, tool calls and all.
 
