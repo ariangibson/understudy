@@ -13,6 +13,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+  <script src="curtains.js" defer></script>
+  <script src="stage.js" defer></script>
   <style>
     :root {
       color-scheme: dark;
@@ -70,41 +72,11 @@
     }
     @keyframes twinkle { 50% { opacity: 0.25; } }
 
-    /* ---- the house: valance + side curtains ---- */
-    .valance {
-      position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 50; pointer-events: none;
-      background: repeating-linear-gradient(90deg,
-        var(--curtain-dk) 0 6px, var(--curtain) 6px 15px, var(--curtain-lt) 15px 19px, var(--curtain) 19px 28px);
-      box-shadow: 0 4px 0 rgba(0,0,0,.35);
+    /* ---- the house: simulated velvet curtains (curtains.js) ---- */
+    #curtains {
+      position: fixed; inset: 0; z-index: 55; pointer-events: none;
+      width: 100%; height: 100%; image-rendering: pixelated;
     }
-    .valance::after {
-      content: ""; position: absolute; top: 100%; left: 0; right: 0; height: 16px;
-      background:
-        radial-gradient(circle at 13px 12px, var(--gold) 0 2px, transparent 3px) repeat-x,
-        radial-gradient(circle at 13px 0, #8c1219 0 11px, transparent 12px) repeat-x;
-      background-size: 26px 16px;
-    }
-    .wing {
-      position: fixed; top: 0; bottom: 0; width: clamp(14px, 4vw, 64px); z-index: 40; pointer-events: none;
-      background: repeating-linear-gradient(90deg,
-        var(--curtain-dk) 0 7px, var(--curtain) 7px 16px, var(--curtain-lt) 16px 20px, var(--curtain) 20px 28px);
-    }
-    .wing.left  { left: 0;  box-shadow: inset -14px 0 14px -8px rgba(0,0,0,.6); }
-    .wing.right { right: 0; box-shadow: inset 14px 0 14px -8px rgba(0,0,0,.6); }
-    @media (max-width: 760px) { .wing { display: none; } }
-
-    /* ---- curtain raise on load ---- */
-    .intro { position: fixed; inset: 0; z-index: 100; pointer-events: none; }
-    .intro span {
-      position: absolute; top: 0; bottom: 0; width: 51%;
-      background: repeating-linear-gradient(90deg,
-        var(--curtain-dk) 0 14px, var(--curtain) 14px 34px, var(--curtain-lt) 34px 42px, var(--curtain) 42px 58px);
-      animation: part 1s cubic-bezier(.6,.05,.4,1) .55s forwards;
-    }
-    .intro span:first-child { left: 0; }
-    .intro span:last-child { right: 0; animation-name: part-r; }
-    @keyframes part   { to { transform: translateX(-103%); } }
-    @keyframes part-r { to { transform: translateX(103%); } }
 
     /* ---- CRT haze ---- */
     .haze {
@@ -138,16 +110,8 @@
     .hero .pitch { max-width: 56ch; margin: 1.3rem auto 0; font-size: 1.45rem; color: var(--body); }
     .hero .pitch em { color: var(--cream); font-style: normal; }
 
-    /* marquee install frame */
-    .marquee { position: relative; margin: 2.6rem auto 0; max-width: 660px; padding: 17px; background: #1d1206; }
-    .marquee::before, .marquee::after {
-      content: ""; position: absolute; inset: 0;
-      background: radial-gradient(circle, var(--gold-lt) 0 3px, rgba(245,179,1,.18) 3px 4px, transparent 5px);
-      background-size: 26px 26px; background-position: 6px 4px;
-    }
-    .marquee::after { background-position: 19px 17px; animation: chase 1s steps(1) infinite; }
-    .marquee::before { animation: chase 1s steps(1) .5s infinite; }
-    @keyframes chase { 50% { opacity: .2; } }
+    /* marquee install frame - bulbs painted by stage.js */
+    .marquee { position: relative; margin: 2.6rem auto 0; max-width: 680px; padding: 28px; background: #1d1206; }
     .marquee-inner {
       position: relative; z-index: 1; background: #120b03; border: 3px solid var(--gold);
       padding: 1rem 1.1rem; text-align: left;
@@ -286,44 +250,34 @@
     .finale { text-align: center; position: relative; }
     .finale .marquee { max-width: 600px; }
     .encore { margin-top: 1.6rem; font-size: 1.3rem; }
-    footer { position: relative; z-index: 1; margin-top: 4rem; }
-    .footlights { height: 18px; display: flex; justify-content: center; gap: clamp(18px, 5vw, 54px); }
-    .footlights i {
-      width: 16px; height: 16px; background: var(--gold-lt); border-radius: 50% 50% 0 0;
-      box-shadow: 0 -10px 26px 6px rgba(245,179,1,.4); transform: translateY(4px);
-    }
-    .floor {
-      background:
-        repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 26px),
-        repeating-linear-gradient(90deg, #5a3a22 0 90px, #69452a 90px 91px, #61402a 91px 180px, #69452a 180px 181px);
-      border-top: 4px solid #2e1d10;
-      padding: 2.6rem 1.5rem 2.2rem; text-align: center;
-    }
+    footer { position: relative; z-index: 1; margin-top: 4.5rem; }
+    /* floorboards + footlights painted by stage.js */
+    .floor { position: relative; padding: 2.1rem clamp(48px, 9vw, 110px) 1.8rem; text-align: center; }
+    .floor > nav { position: relative; z-index: 1; }
     .floor .links { display: flex; flex-wrap: wrap; gap: 1.6rem; justify-content: center; font-size: 1.3rem; }
     .floor .links a { color: var(--cream); text-shadow: 1px 1px 0 rgba(0,0,0,.6); }
-    .floor .mit { margin-top: 1.3rem; font-family: var(--display); font-size: .5rem; color: #c9b896; letter-spacing: .12em; line-height: 2; }
-    .floor .badges { margin-top: .9rem; font-size: 1.05rem; color: #a88f6d; }
 
-    /* the understudy waiting in the wings (optional sprite, see repo notes) */
-    .in-the-wings {
-      position: absolute; right: -10px; bottom: 0; width: clamp(90px, 12vw, 150px); pointer-events: none;
-      filter: drop-shadow(0 6px 12px rgba(0,0,0,.5));
+    /* the robot peeks out from stage left, never more than halfway -
+       left edge matches the curtain leg's inner edge (curtains.js) */
+    .stage-robot {
+      position: absolute; left: clamp(34px, 7vw, 118px); bottom: 6px; z-index: 1;
+      width: clamp(110px, 14vw, 200px); pointer-events: none;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,.55));
+      transform: translateX(-170%);
+      transition: transform 1.1s cubic-bezier(.22, 1, .36, 1);
     }
-    @media (max-width: 900px) { .in-the-wings { display: none; } }
+    .stage-robot.on-stage { transform: translateX(-52%); }
 
     @media (prefers-reduced-motion: reduce) {
-      .intro { display: none; }
-      .marquee::before, .marquee::after, .stars i, .crt .cur { animation: none !important; }
+      .stars i, .crt .cur { animation: none !important; }
+      .stage-robot { transform: translateX(-52%); transition: none; }
     }
   </style>
 </head>
 <body>
 
   <div class="stars" aria-hidden="true"><i></i><i></i></div>
-  <div class="wing left" aria-hidden="true"></div>
-  <div class="wing right" aria-hidden="true"></div>
-  <div class="valance" aria-hidden="true"></div>
-  <div class="intro" aria-hidden="true"><span></span><span></span></div>
+  <canvas id="curtains" aria-hidden="true"></canvas>
   <div class="haze" aria-hidden="true"></div>
 
   <main>
@@ -475,22 +429,18 @@
         </div>
       </div>
       <p class="encore">*and every night after. <a href="https://github.com/ariangibson/understudy">Star it on GitHub</a> if the show was good.</p>
-      <img class="in-the-wings" src="robot-wings.png" alt="" onerror="this.remove()" />
     </section>
 
   </main>
 
   <footer>
-    <div class="footlights" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <div class="floor">
+      <img class="stage-robot" src="robot-stage.png" alt="" onerror="this.remove()" />
       <nav class="links">
         <a href="https://github.com/ariangibson/understudy">GitHub</a>
-        <a href="https://github.com/ariangibson/understudy#the-scene">The full programme</a>
         <a href="https://github.com/ariangibson/understudy/pkgs/container/understudy">Docker</a>
         <a href="https://understudy.cc/install.sh">install.sh</a>
       </nav>
-      <p class="mit">MIT - THE SHOW IS YOURS.</p>
-      <p class="badges">TypeScript strict · 4 runtime deps · verified live against 5 harnesses</p>
     </div>
   </footer>
 
