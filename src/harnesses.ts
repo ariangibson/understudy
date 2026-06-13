@@ -436,9 +436,9 @@ export function defaultContext(): HarnessContext {
   if (!port) {
     try {
       const env = readFileSync(join(home, ".understudy", ".env"), "utf8");
-      port = Number(env.match(/^PORT=(\d+)/m)?.[1] ?? 3001);
+      port = Number(env.match(/^PORT=(\d+)/m)?.[1] ?? 42986);
     } catch {
-      port = 3001;
+      port = 42986;
     }
   }
   let gatewayKey = "";

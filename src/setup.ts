@@ -136,7 +136,7 @@ export async function runSetup(opts: { firstRun?: boolean } = {}): Promise<void>
   // On first run, make sure the .env exists (seed PORT if nothing else was
   // entered) so the next launch doesn't mistake itself for a first run too.
   if (opts.firstRun && !effective.PORT && updates.PORT === undefined) {
-    updates.PORT = String(effective.PORT || 3001);
+    updates.PORT = String(effective.PORT || 42986);
   }
   if (Object.keys(updates).length > 0) {
     backup(envPath);
@@ -144,7 +144,7 @@ export async function runSetup(opts: { firstRun?: boolean } = {}): Promise<void>
     console.log(`\nWrote ${envPath}`);
   }
 
-  const port = Number(effective.PORT || process.env.PORT || 3001);
+  const port = Number(effective.PORT || process.env.PORT || 42986);
   const baseUrl = `http://localhost:${port}`;
   const gatewayKey = updates.GATEWAY_API_KEYS ?? effective.GATEWAY_API_KEYS ?? "";
 

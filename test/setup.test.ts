@@ -14,22 +14,22 @@ import {
 } from "../src/harnesses.js";
 import { upsertEnvFile } from "../src/setup.js";
 
-const BASE = "http://localhost:3001";
+const BASE = "http://localhost:42986";
 
 describe("upsertEnvFile", () => {
   it("updates existing keys and appends new ones", () => {
-    const out = upsertEnvFile("PORT=3001\nOPENAI_API_KEY=\n", {
+    const out = upsertEnvFile("PORT=42986\nOPENAI_API_KEY=\n", {
       OPENAI_API_KEY: "sk-new",
       FALLBACK_CHAIN: "openai/gpt-5.5",
     });
     expect(out).toContain("OPENAI_API_KEY=sk-new");
     expect(out).toContain("FALLBACK_CHAIN=openai/gpt-5.5");
-    expect(out).toContain("PORT=3001");
+    expect(out).toContain("PORT=42986");
     expect(out.match(/OPENAI_API_KEY=/g)).toHaveLength(1);
   });
 
   it("starts cleanly from an empty file", () => {
-    expect(upsertEnvFile("", { PORT: "3001" })).toBe("PORT=3001\n");
+    expect(upsertEnvFile("", { PORT: "42986" })).toBe("PORT=42986\n");
   });
 });
 
@@ -144,9 +144,9 @@ describe("hermesRead", () => {
   });
 
   it("reads a gateway-routed config", () => {
-    const yaml = "model:\n  provider: custom\n  base_url: http://localhost:3001/v1\n";
+    const yaml = "model:\n  provider: custom\n  base_url: http://localhost:42986/v1\n";
     expect(hermesRead(yaml)).toEqual({
-      base_url: "http://localhost:3001/v1",
+      base_url: "http://localhost:42986/v1",
       provider: "custom",
     });
   });

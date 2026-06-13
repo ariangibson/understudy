@@ -130,7 +130,7 @@ export function configuredProviders(): ProviderConfig[] {
 }
 
 export const config = {
-  port: Number(process.env.PORT ?? 3001),
+  port: Number(process.env.PORT ?? 42986),
   /** Comma-separated keys clients must present as `Authorization: Bearer <key>`. */
   gatewayKeys: (process.env.GATEWAY_API_KEYS ?? "")
     .split(",")

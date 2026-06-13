@@ -2,13 +2,13 @@ services:
   understudy:
     build: .
     ports:
-      - "3001:3001"
+      - "42986:42986"
     env_file: .env
     volumes:
       - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:42986/health"]
       interval: 30s
       timeout: 5s
       retries: 3

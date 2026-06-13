@@ -14,7 +14,7 @@ COPY --from=build /app/dist ./dist
 COPY package.json ./
 RUN mkdir -p data && chown -R node:node /app
 USER node
-EXPOSE 3001
+EXPOSE 42986
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
-  CMD wget -qO- "http://localhost:${PORT:-3001}/health" || exit 1
+  CMD wget -qO- "http://localhost:${PORT:-42986}/health" || exit 1
 CMD ["node", "dist/index.js"]

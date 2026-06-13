@@ -69,7 +69,7 @@ Installed above? You're done - this section is the other ways onto the stage.
 ```bash
 npx github:ariangibson/understudy   # zero-install run (works on Windows too; first run sets up)
 
-docker run --rm -p 3001:3001 --env-file .env ghcr.io/ariangibson/understudy:latest   # prebuilt, multi-arch
+docker run --rm -p 42986:42986 --env-file .env ghcr.io/ariangibson/understudy:latest   # prebuilt, multi-arch
 ```
 
 Or from source: `git clone https://github.com/ariangibson/understudy && cd understudy && npm install && npm run setup && npm run dev`.
@@ -84,7 +84,7 @@ FALLBACK_CHAIN=anthropic/claude-sonnet-4-6,openai/gpt-5.5
 That's it. Every request through the gateway - from any client, with **zero client-side changes** - now fails over down that chain whenever its model is unavailable.
 
 ```bash
-curl http://localhost:3001/v1/chat/completions \
+curl http://localhost:42986/v1/chat/completions \
   -H "content-type: application/json" \
   -d '{"model": "claude-opus-4-8", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
@@ -96,7 +96,7 @@ The gateway speaks all three wire dialects agent harnesses use - OpenAI chat com
 **Claude Code** - one environment variable; the harness speaks the Anthropic dialect to `/v1/messages`:
 
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:3001 claude
+ANTHROPIC_BASE_URL=http://localhost:42986 claude
 ```
 
 The whole failover story is literally two environment variables - one on each side:
@@ -106,7 +106,7 @@ FALLBACK_CHAIN=openai/gpt-5.5 understudy        # the understudy waits in the wi
 ```
 
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:3001 claude  # business as usual - until it isn't
+ANTHROPIC_BASE_URL=http://localhost:42986 claude  # business as usual - until it isn't
 ```
 
 When the route is Anthropic itself, requests pass through verbatim - prompt caching, thinking blocks, beta features, and even your Claude Pro/Max login all survive (the gateway forwards your session's OAuth token, so it bills exactly like talking to Anthropic directly). Only when an understudy steps in does translation happen.
@@ -118,7 +118,7 @@ model_provider = "understudy"
 
 [model_providers.understudy]
 name = "Understudy gateway"
-base_url = "http://localhost:3001/v1"
+base_url = "http://localhost:42986/v1"
 env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key
 ```
 
@@ -132,7 +132,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
     "understudy": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Understudy",
-      "options": { "baseURL": "http://localhost:3001/v1", "apiKey": "your-gateway-key" },
+      "options": { "baseURL": "http://localhost:42986/v1", "apiKey": "your-gateway-key" },
       "models": { "claude-sonnet-4-6": { "name": "Claude via Understudy" } }
     }
   },
@@ -147,7 +147,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
   "models": {
     "providers": {
       "understudy": {
-        "baseUrl": "http://localhost:3001/v1",
+        "baseUrl": "http://localhost:42986/v1",
         "apiKey": "your-gateway-key",
         "api": "openai-completions",
         "models": [{ "id": "claude-sonnet-4-6" }, { "id": "gpt-5-mini" }]
@@ -163,7 +163,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
 model:
   default: claude-sonnet-4-6
   provider: custom
-  base_url: http://localhost:3001/v1
+  base_url: http://localhost:42986/v1
   api_key: your-gateway-key
 ```
 
@@ -172,7 +172,7 @@ model:
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:3001/v1", api_key="your-gateway-key")
+client = OpenAI(base_url="http://localhost:42986/v1", api_key="your-gateway-key")
 
 response = client.chat.completions.create(
     model="claude-sonnet-4-6",       # Claude as the agent brain, via the OpenAI SDK
@@ -235,7 +235,7 @@ The circuit breaker is what makes it fast under fire: a failing model is **bench
 
 ```bash
 # Per-request chain (overrides FALLBACK_CHAIN)
-curl http://localhost:3001/v1/chat/completions -H "content-type: application/json" \
+curl http://localhost:42986/v1/chat/completions -H "content-type: application/json" \
   -d '{
     "model": "anthropic/claude-opus-4-8",
     "fallbacks": ["anthropic/claude-sonnet-4-6", "openai/gpt-5-mini"],
@@ -293,7 +293,7 @@ FALLBACK_CHAIN=chatgpt/gpt-5.5 understudy
 ```
 
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:3001 claude
+ANTHROPIC_BASE_URL=http://localhost:42986 claude
 ```
 
 Hit your Claude limit mid-session and **GPT-5.5 finishes the job on your ChatGPT plan** - no per-token API bill, the subscription you already own. (Verified live: Claude Code 429 → `chatgpt/gpt-5.5` served the next turns, tool calls and all.) The ChatGPT route talks to the same backend the Codex CLI uses, which is what accepts subscription tokens; the platform API (`api.openai.com`, billed per token) is a separate `openai/...` provider.
@@ -315,7 +315,7 @@ The cache is stream-aware in both directions: a completed *streamed* response is
 Every request is logged (JSONL) with tokens, computed USD cost, latency, and who served it. You finally know what the overnight run cost - and what the cache saved you.
 
 ```bash
-curl http://localhost:3001/v1/usage | jq
+curl http://localhost:42986/v1/usage | jq
 ```
 
 ```json
@@ -427,7 +427,7 @@ All via environment. The installed `understudy` command reads `.env` from its ho
 | `DEFAULT_MAX_TOKENS` | Used when clients omit `max_tokens` (default 4096) |
 | `USAGE_LOG` | JSONL path (default `data/usage.jsonl`) |
 | `UNDERSTUDY_ANTHROPIC_UPSTREAM` | Alternate Anthropic-compatible upstream for `/v1/messages` passthrough (testing, Bedrock-style proxies) |
-| `PORT` | Default 3001 |
+| `PORT` | Default 42986 |
 
 Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
 
