@@ -9,7 +9,10 @@
   <meta property="og:description" content="When your model can't go on, the show does." />
   <meta property="og:image" content="https://understudy.cc/banner.jpg" />
   <meta name="theme-color" content="#0b0b1a" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' shape-rendering='crispEdges'%3E%3Crect x='3' y='0' width='4' height='2' fill='%23a31621'/%3E%3Crect x='2' y='2' width='6' height='1' fill='%236e0d12'/%3E%3Crect x='2' y='3' width='6' height='6' fill='%237e8aa0'/%3E%3Crect x='3' y='4' width='4' height='3' fill='%23303a52'/%3E%3Crect x='4' y='5' width='2' height='2' fill='%23f5b301'/%3E%3Crect x='3' y='9' width='4' height='1' fill='%23303a52'/%3E%3C/svg%3E" />
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png" />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
@@ -86,7 +89,7 @@
         radial-gradient(120% 90% at 50% 30%, transparent 60%, rgba(0,0,0,.38));
     }
 
-    main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 clamp(24px, 8vw, 96px); }
+    main { position: relative; z-index: 1; max-width: 1060px; margin: 0 auto; padding: 0 clamp(50px, 8vw, 96px); }
     section { padding: clamp(3.5rem, 8vh, 6rem) 0; }
 
     /* ---- hero ---- */
@@ -109,6 +112,9 @@
     }
     .hero .pitch { max-width: 56ch; margin: 1.3rem auto 0; font-size: 1.45rem; color: var(--body); }
     .hero .pitch em { color: var(--cream); font-style: normal; }
+    .hero .bridge { max-width: 52ch; margin: 1.6rem auto 0; font-size: 1.3rem; color: var(--body); }
+    .hero .bridge em { color: var(--cream); font-style: normal; }
+    .hero .raise { margin: 2.8rem auto 1.3rem; }
 
     /* marquee install frame - bulbs painted by stage.js */
     .marquee { position: relative; margin: 2.6rem auto 0; max-width: 680px; padding: 28px; background: #1d1206; }
@@ -218,6 +224,13 @@
     .cast-row .dots { flex: 1; border-bottom: 3px dotted #3a3a66; transform: translateY(-5px); }
     .cast-row .part { color: var(--body); text-align: right; }
     .cast-row.lead .who::after { content: " ★"; color: var(--gold); }
+    /* on phones the dot-leader row gets cramped; stack name over role */
+    @media (max-width: 560px) {
+      .cast-row { flex-wrap: wrap; padding: .55rem 0; }
+      .cast-row .dots { display: none; }
+      .cast-row .who { width: 100%; }
+      .cast-row .part { width: 100%; text-align: left; color: var(--dim); font-size: 1.12rem; }
+    }
     .tickets-note { text-align: center; margin-top: 1.6rem; font-size: 1.2rem; color: var(--dim); }
 
     .troupe { margin-top: 2.8rem; text-align: center; }
@@ -245,6 +258,15 @@
     .note h3 { font-family: var(--display); font-size: .62rem; color: var(--gold); line-height: 1.9; margin-bottom: .6rem; }
     .note p { font-size: 1.3rem; }
     .note code { font: .82rem var(--mono); color: var(--gold-lt); background: #120b03; padding: .1em .4em; }
+
+    /* ---- the prompt book (command reference) ---- */
+    .cuesheet { max-width: 720px; margin: 0 auto; list-style: none; padding: 0; }
+    .cuesheet li { padding: 1.15rem 0; border-bottom: 3px dotted #2c2c50; }
+    .cuesheet li:first-child { border-top: 3px dotted #2c2c50; }
+    .cuesheet .cmd { font: 600 clamp(.82rem, 2.4vw, .98rem) var(--mono); color: var(--gold-lt); display: block; }
+    .cuesheet .cmd b { color: var(--cream); font-weight: 600; }
+    .cuesheet p { font-size: 1.32rem; margin-top: .35rem; color: var(--body); }
+    .cuesheet p b { color: var(--cream); font-weight: 400; }
 
     /* ---- curtain call / footer ---- */
     .finale { text-align: center; position: relative; }
@@ -285,7 +307,7 @@
     <header class="hero">
       <h1>UNDERSTUDY</h1>
       <p class="tagline">WHEN YOUR MODEL CAN'T GO ON,<br/>THE SHOW DOES.</p>
-      <p class="pitch">The self-hosted LLM gateway that keeps your agents running. Rate limit? Quota? Outage? <em>The understudy steps in mid-performance - your agent never knows.</em></p>
+      <p class="pitch">A self-hosted gateway that keeps your AI agents running when a model taps out. Rate limit, quota, outage: <em>the understudy steps in mid-scene, and your agent never knows the lead changed.</em></p>
 
       <div class="marquee">
         <span class="now-showing">NOW SHOWING</span>
@@ -294,13 +316,26 @@
             <code id="install-cmd"><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</code>
             <button class="copy" data-copy="curl -fsSL https://understudy.cc/install.sh | bash">COPY</button>
           </div>
+        </div>
+      </div>
+      <p class="meta">macOS / Linux, Node 20+ · Windows: <code style="font: .85rem var(--mono); color: var(--cream);">npx github:ariangibson/understudy</code></p>
+
+      <p class="bridge">That puts it on your machine. The first launch runs a short setup - provider keys, a fallback chain, and auto-wiring the agent tools you already use. After that, <em>starting the gateway is one word.</em></p>
+
+      <div class="act raise">
+        <span class="no">PLACES, EVERYONE</span>
+        <h2>RAISE THE CURTAIN</h2>
+      </div>
+      <div class="marquee">
+        <span class="now-showing">YOUR CUE</span>
+        <div class="marquee-inner">
           <div class="cmd-line">
             <code><b>understudy</b></code>
             <button class="copy" data-copy="understudy">COPY</button>
           </div>
         </div>
       </div>
-      <p class="meta">macOS / Linux, Node 20+ · Windows: <code style="font: .85rem var(--mono); color: var(--cream);">npx github:ariangibson/understudy</code> · first run sets everything up</p>
+      <p class="bridge">Point any agent at the local endpoint and it never drops a session again - no harness restart, no config change, no 2 a.m. page. <em>Take your seat.</em></p>
 
       <figure class="stage-frame">
         <img src="banner.jpg" alt="Pixel-art robot taking a bow in a spotlight on a theater stage" width="720" height="354" />
@@ -324,8 +359,9 @@
     <section id="trick">
       <div class="act">
         <span class="no">ACT II</span>
-        <h2>THE WHOLE TRICK IS TWO ENVIRONMENT VARIABLES.</h2>
+        <h2>THE QUICK CHANGE, IN TWO ENVIRONMENT VARIABLES.</h2>
       </div>
+      <p class="lede">One variable on the gateway, one on your harness. That is the entire wiring.</p>
 
       <div class="duet">
         <pre><b>FALLBACK_CHAIN</b>=openai/gpt-5.5 understudy        <i># the understudy waits in the wings</i></pre>
@@ -333,21 +369,59 @@
       </div>
 
       <ul class="directions">
-        <li><span class="cue">[enter UNDERSTUDY, stage left]</span> 429s, 5xx, outages: the failing model is <b>benched</b>, the next one steps in mid-run, and the lead retakes the stage the moment its cooldown expires.</li>
-        <li><span class="cue">[aside]</span> Three wire dialects in - OpenAI, Anthropic, Responses - any model out. Tool calls, vision, and live SSE streams are <b>translated event by event</b>, in whichever format the client is listening for.</li>
-        <li><span class="cue">[aside]</span> Your <b>ChatGPT, Copilot, or Claude subscription</b> can be the understudy: <code style="font:.85rem var(--mono);color:var(--gold-lt)">understudy login chatgpt</code> and the plan you already pay for finishes the run.</li>
-        <li><span class="cue">[exeunt]</span> <code style="font:.85rem var(--mono);color:var(--gold-lt)">understudy disable</code> restores every harness exactly as it was. <b>The off switch works even when the gateway doesn't.</b></li>
+        <li><span class="cue">The understudy steps in</span> On a 429, a 5xx, or an outage, the failing model is <b>benched</b>, the next one in the chain takes over mid-run, and the lead retakes the stage the moment its cooldown expires.</li>
+        <li><span class="cue">Fluent in every dialect</span> Requests arrive as OpenAI, Anthropic, or Responses; any model answers in the format the client expects. Tool calls, vision, and live token streams are <b>translated event by event</b>, so the harness never notices the swap.</li>
+        <li><span class="cue">The off switch always works</span> <code style="font:.85rem var(--mono);color:var(--gold-lt)">understudy disable</code> restores every harness to exactly how it connected before - <b>even when the gateway itself is down.</b></li>
       </ul>
+    </section>
+
+    <section id="longrun">
+      <div class="act">
+        <span class="no">ACT III</span>
+        <h2>THE SHOW THAT NEVER CLOSES.</h2>
+      </div>
+      <p class="lede">Surviving one bad night is the easy part. Here is what makes understudy the gateway you leave running.</p>
+
+      <div class="notes">
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>SEASON TICKETS</h3>
+            <p>API keys aren't the only way to pay. <code>understudy login</code> seats a ChatGPT, Claude, or Copilot subscription you already own as a link in the chain - no per-token bill when it covers a run.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>REHEARSALS ARE FREE</h3>
+            <p>Identical requests replay from cache - streamed or not, ~0&nbsp;ms, zero tokens billed. Crash-and-retry loops stop charging you twice for the same lines.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>THE BOX OFFICE</h3>
+            <p>Every request logged with tokens, latency, cost, and who served it. <code>curl /v1/usage</code> and finally know what the overnight run actually cost.</p>
+          </div>
+        </div>
+        <div class="note">
+          <span class="rip" aria-hidden="true">ADMIT ONE</span>
+          <div class="note-body">
+            <h3>NO DRAMA OFFSTAGE</h3>
+            <p>Strict TypeScript, four runtime dependencies, no database. Self-hosted, so your provider keys never leave the building.</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="cast">
       <div class="act">
-        <span class="no">ACT III</span>
+        <span class="no">DRAMATIS PERSONAE</span>
         <h2>THE CAST</h2>
       </div>
 
       <div class="playbill">
-        <h3>TONIGHT'S COMPANY</h3>
+        <h3>THE COMPANY</h3>
         <p class="sub">in order of appearance</p>
         <div class="cast-row lead"><span class="who">Anthropic</span><span class="dots"></span><span class="part">Claude - Fable, Opus, Sonnet</span></div>
         <div class="cast-row"><span class="who">OpenAI</span><span class="dots"></span><span class="part">GPT-5.x</span></div>
@@ -358,7 +432,7 @@
         <div class="cast-row"><span class="who">Ollama</span><span class="dots"></span><span class="part">anything local, keyless</span></div>
         <div class="cast-row"><span class="who">Synthetic</span><span class="dots"></span><span class="part">open weights - Kimi, GLM, Qwen</span></div>
         <div class="cast-row"><span class="who">ChatGPT / Copilot</span><span class="dots"></span><span class="part">your subscription, via OAuth</span></div>
-        <p class="tickets-note">★ marks the lead. Recast it by changing one string.</p>
+        <p class="tickets-note">★ marks the lead. Recast any role by changing one string.</p>
       </div>
 
       <div class="troupe">
@@ -372,63 +446,47 @@
           <span class="stub">LangChain</span>
           <span class="stub">your own code</span>
         </div>
-        <p class="tickets-note">All five named harnesses verified live against this gateway - tool calls and all.</p>
+        <p class="tickets-note">The five agent harnesses were tested live - primary down, understudy serving, tool calls included. LangChain and your own code connect through the standard OpenAI SDK.</p>
       </div>
     </section>
 
-    <section id="notes">
+    <section id="promptbook">
       <div class="act">
-        <span class="no">PROGRAM NOTES</span>
-        <h2>ALSO ON THE BILL</h2>
+        <span class="no">STAGE MANAGEMENT</span>
+        <h2>THE PROMPT BOOK</h2>
       </div>
+      <p class="lede">One binary runs the whole production. Here is the full set of cues.</p>
 
-      <div class="notes">
-        <div class="note">
-          <span class="rip" aria-hidden="true">ADMIT ONE</span>
-          <div class="note-body">
-            <h3>SEASON TICKETS</h3>
-            <p>API keys aren't the only way to pay for the show. One <code>login</code> command seats the subscription you already own as a link in the failover chain.</p>
-          </div>
-        </div>
-        <div class="note">
-          <span class="rip" aria-hidden="true">ADMIT ONE</span>
-          <div class="note-body">
-            <h3>REHEARSALS ARE FREE</h3>
-            <p>Identical requests within the TTL replay straight from cache - streamed or not, ~0&nbsp;ms, zero tokens billed. Retries stop re-billing you for lines already delivered.</p>
-          </div>
-        </div>
-        <div class="note">
-          <span class="rip" aria-hidden="true">ADMIT ONE</span>
-          <div class="note-body">
-            <h3>THE BOX OFFICE</h3>
-            <p>Every request logged with tokens, USD cost, latency, and who served it. <code>curl /v1/usage</code> and finally know what the overnight run cost.</p>
-          </div>
-        </div>
-        <div class="note">
-          <span class="rip" aria-hidden="true">ADMIT ONE</span>
-          <div class="note-body">
-            <h3>NO DRAMA OFFSTAGE</h3>
-            <p>Strict TypeScript, 4 runtime dependencies, no database, pure translation functions tested without mocks. Self-hosted: your keys never leave the building.</p>
-          </div>
-        </div>
-      </div>
+      <ul class="cuesheet">
+        <li>
+          <span class="cmd"><b>understudy</b></span>
+          <p>Start the gateway. The first run walks you through setup - keys, a fallback chain, and wiring up whatever harnesses it finds. Every run after just raises the curtain.</p>
+        </li>
+        <li>
+          <span class="cmd"><b>understudy</b> setup</span>
+          <p>Re-run the wizard any time to change provider keys, the fallback chain, or which harnesses route through the gateway.</p>
+        </li>
+        <li>
+          <span class="cmd"><b>understudy</b> login <span style="color:var(--dim)">&lt;chatgpt | anthropic | copilot&gt;</span></span>
+          <p>Seat a subscription you already pay for as an understudy, through a one-time OAuth flow. It then stands in like any other link in the chain.</p>
+        </li>
+        <li>
+          <span class="cmd"><b>understudy</b> status</span>
+          <p>Who's on stage right now: gateway health, live providers, who's benched and for how long, and which harnesses are routed through the gateway versus talking direct.</p>
+        </li>
+        <li>
+          <span class="cmd"><b>understudy</b> enable · <b>understudy</b> disable</span>
+          <p>Route every harness through the gateway, or restore each one to exactly how it connected before. <b>Both work even when the gateway is down</b> - so a single point of failure never traps you.</p>
+        </li>
+      </ul>
     </section>
 
     <section class="finale" id="encore">
       <div class="act">
         <span class="no">CURTAIN CALL</span>
-        <h2>RAISE THE CURTAIN</h2>
+        <h2>TAKE A BOW</h2>
       </div>
-      <div class="marquee">
-        <span class="now-showing">TONIGHT ONLY*</span>
-        <div class="marquee-inner">
-          <div class="cmd-line">
-            <code><b>curl</b> -fsSL https://understudy.cc/install.sh | bash</code>
-            <button class="copy" data-copy="curl -fsSL https://understudy.cc/install.sh | bash">COPY</button>
-          </div>
-        </div>
-      </div>
-      <p class="encore">*and every night after. <a href="https://github.com/ariangibson/understudy">Star it on GitHub</a> if the show was good.</p>
+      <p class="encore">That's the show. If the understudy earned the part, leave a <a href="https://github.com/ariangibson/understudy">star on GitHub</a> on your way out - the source is there too.</p>
     </section>
 
   </main>
