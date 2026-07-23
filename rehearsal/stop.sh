@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Stop all harness processes.
-HARNESS="$(cd "$(dirname "$0")" && pwd)"
+# CDPATH= so a CDPATH in the user's shell can't make `cd` echo the target
+# and poison the captured path; pwd -P for a clean physical dir either way.
+HARNESS="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 RUN="$HARNESS/run"
 for name in spotlight understudy gremlin gremlin-openai; do
   if [ -f "$RUN/$name.pid" ]; then

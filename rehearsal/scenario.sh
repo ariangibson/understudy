@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end failover + recovery drill, parameterized per agent harness:
-#   scenario.sh claude|codex|opencode|hermes
+#   scenario.sh claude|codex|opencode|hermes|openclaw
 #
 # Five acts:
 #   1. launch the real agent binary headlessly with a task needing ~6
@@ -13,7 +13,9 @@
 #      exact final output)
 set -uo pipefail
 
-HARNESS="$(cd "$(dirname "$0")" && pwd)"
+# CDPATH= so a CDPATH in the user's shell can't make `cd` echo the target
+# and poison the captured path; pwd -P for a clean physical dir either way.
+HARNESS="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SPANS="$HARNESS/traces/spans.jsonl"
 WORKDIR="$HARNESS/run/agent-home"
 mkdir -p "$WORKDIR"
@@ -63,8 +65,30 @@ JSONC
     launch() {
       perl -e 'alarm 300; exec @ARGV' hermes -z "$PROMPT" </dev/null
     } ;;
+  openclaw)
+    SPAN_AGENT="openclaw"; TARGET="openai"
+    # Isolated `understudy` profile (~/.openclaw-understudy) — the real
+    # ~/.openclaw config is never touched. Provider points at spotlight, an
+    # x-trace-agent header names the span, exec runs unattended, and the
+    # dummy key satisfies --local (the open-mode gateway needs no real key).
+    OC="openclaw --profile understudy"
+    $OC config set models.providers.openai.baseUrl http://127.0.0.1:42900/v1 >/dev/null 2>&1
+    $OC config set models.providers.openai.apiKey rehearsal-dummy       >/dev/null 2>&1
+    $OC config set models.providers.openai.headers.x-trace-agent openclaw >/dev/null 2>&1
+    $OC config set agents.defaults.model.primary openai/gpt-5.5         >/dev/null 2>&1
+    $OC config set tools.exec.mode full                                 >/dev/null 2>&1
+    # skipBootstrap: otherwise a first-run onboarding turn hijacks the task.
+    $OC config set agents.defaults.skipBootstrap true                   >/dev/null 2>&1
+    launch() {
+      # --json: OpenClaw doesn't reliably write the plain reply to stdout;
+      # the JSON envelope carries payloads[].text (so CURTAIN CALL lands).
+      # Fresh --session-key per run keeps each drill a clean conversation.
+      OPENAI_API_KEY=rehearsal-dummy OPENAI_BASE_URL=http://127.0.0.1:42900/v1 \
+      perl -e 'alarm 300; exec @ARGV' openclaw --profile understudy agent --local --json \
+        --session-key "drill-$$" -m "$PROMPT" --model openai/gpt-5.5
+    } ;;
   *)
-    echo "usage: scenario.sh claude|codex|opencode|hermes" >&2; exit 2 ;;
+    echo "usage: scenario.sh claude|codex|opencode|hermes|openclaw" >&2; exit 2 ;;
 esac
 
 # The guard must prove the whole stack, not just spotlight — /__health fills

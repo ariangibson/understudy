@@ -5,8 +5,8 @@ kill a provider mid-conversation and the agent never notices. Understudy benches
 failed provider, the fallback finishes the tool loop, and traffic returns to the
 primary when it recovers - zero errors visible to the client.
 
-Verified against Claude Code (Messages dialect), Codex (Responses), and
-OpenCode + Hermes Agent (chat completions) - all three front doors, live.
+Verified against Claude Code (Messages dialect), Codex + OpenClaw (Responses),
+and OpenCode + Hermes Agent (chat completions) - all three front doors, live.
 
 ## Topology
 
@@ -40,6 +40,7 @@ rehearsal/scenario.sh claude  # automated drill: failover → recovery, asserted
 rehearsal/scenario.sh codex   # (see per-agent setup below)
 rehearsal/scenario.sh opencode
 rehearsal/scenario.sh hermes
+rehearsal/scenario.sh openclaw
 
 rehearsal/stop.sh
 ```
@@ -68,6 +69,7 @@ assume:
 | **codex** | create `~/.codex/understudy.config.toml` (see below), then `codex --profile understudy` |
 | **opencode** | none - the scenario writes a project-scoped `opencode.jsonc` into its sandbox workdir |
 | **hermes** | set `OPENAI_BASE_URL=http://127.0.0.1:42900/v1` in `~/.hermes/.env` and `model.default: gpt-5.5` in `~/.hermes/config.yaml` (note: hermes' `.env` overrides its `config.yaml` base_url). Restore after. |
+| **openclaw** | none - the scenario configures an isolated `understudy` profile (`~/.openclaw-understudy`), so the real `~/.openclaw` config is never touched. Runs `agent --local --json` with `skipBootstrap` and unattended exec. |
 | **n8n** | start with `SPOTLIGHT_HOST=0.0.0.0 rehearsal/run.sh` (spotlight binds loopback by default - spans hold full conversation bodies), then point the LLM credential base URL at `http://<host-ip>:42900/v1`. Add an `x-trace-agent` header for clean attribution. |
 
 `~/.codex/understudy.config.toml`:
@@ -117,5 +119,5 @@ custom viewer understands tool calls and dialects, which generic tracers don't.)
 | `spotlight.ts` | tracing proxy + viewer server, run via tsx from the repo root |
 | `viewer.html` | the span viewer UI |
 | `trip.sh` | fault lever: `on\|overload\|off\|once [N]\|status  [anthropic\|openai]` |
-| `scenario.sh` | the automated drill: `scenario.sh claude\|codex\|opencode\|hermes` |
+| `scenario.sh` | the automated drill: `scenario.sh claude\|codex\|opencode\|hermes\|openclaw` |
 | `traces/`, `run/` | runtime output - gitignored |

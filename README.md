@@ -42,7 +42,7 @@ curl -fsSL https://understudy.cc/install.sh | bash
 understudy
 ```
 
-That's the whole thing. The first run walks you through a short setup - provider keys, a suggested fallback chain, and auto-wiring whichever harnesses it finds installed (Claude Code, Codex, OpenCode, Hermes), backing up any file it touches - then raises the curtain. Every run after that just starts the gateway. Re-run the wizard any time with `understudy setup`, and un-wire everything in one command with `understudy disable` (see [Going dark](#going-dark)).
+That's the whole thing. The first run walks you through a short setup - provider keys, a suggested fallback chain, and auto-wiring whichever harnesses it finds installed (Claude Code, Codex, OpenCode, Hermes, OpenClaw), backing up any file it touches - then raises the curtain. Every run after that just starts the gateway. Re-run the wizard any time with `understudy setup`, and un-wire everything in one command with `understudy disable` (see [Going dark](#going-dark)).
 
 Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
 
@@ -60,7 +60,7 @@ Without understudy:                         With understudy:
 
 Your Claude login passes through untouched while Claude performs; the understudy bills its own account - an API key, or **the ChatGPT / Copilot / Claude subscription you already pay for**, seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
 
-Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects - all four named harnesses verified live against this gateway, tool calls and all, by the automated chaos drills in [`rehearsal/`](rehearsal/).
+Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **Hermes Agent**, **OpenClaw**, **LangChain**, and anything else that speaks any of the three major wire dialects - all five named harnesses verified live against this gateway, tool calls and all, by the automated chaos drills in [`rehearsal/`](rehearsal/).
 
 ## Opening night
 
@@ -156,6 +156,16 @@ model:
 ```
 
 Gotcha: if you use Hermes' `openai-api` provider instead of `custom`, an `OPENAI_BASE_URL` line in `~/.hermes/.env` silently overrides `model.base_url` - set the gateway URL there, or requests keep going to the old endpoint no matter what the YAML says.
+
+**OpenClaw** - point a provider's `baseUrl` at the gateway ([docs](https://docs.openclaw.ai/concepts/model-providers)). OpenClaw drives its `openai` provider over the Responses dialect, so it routes through `/v1/responses`:
+
+```bash
+openclaw config set models.providers.openai.baseUrl http://localhost:42986/v1
+openclaw config set models.providers.openai.apiKey  your-gateway-key
+openclaw config set agents.defaults.model.primary   openai/gpt-5.5
+```
+
+Gotcha: fresh sessions run a first-turn onboarding that will answer *instead of* your task - set `openclaw config set agents.defaults.skipBootstrap true` for unattended/headless runs.
 
 **LangChain / LlamaIndex / your own code** - standard OpenAI client, custom base URL:
 
@@ -332,7 +342,7 @@ Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other pro
 | `POST /v1/chat/completions` | OpenAI chat dialect (OpenCode, Hermes, LangChain, SDKs) - streaming, tools, vision, failover |
 | `POST /v1/messages` | Anthropic Messages dialect (Claude Code) - verbatim passthrough to Anthropic, translated failover elsewhere |
 | `POST /v1/messages/count_tokens` | Token counting passthrough (local estimate when no upstream is available) |
-| `POST /v1/responses` | OpenAI Responses dialect (Codex) - translated through the same chain |
+| `POST /v1/responses` | OpenAI Responses dialect (Codex, OpenClaw) - translated through the same chain |
 | `GET /v1/models` | Live aggregated model list across all configured providers (5-min cache) |
 | `GET /v1/usage` | Usage, cost, and cache-savings summary |
 | `GET /health` | Status, active providers, current cooldowns (unauthenticated) |
@@ -437,7 +447,7 @@ CI runs typecheck + tests on every push and PR; merges to `main` build and publi
 ## The dress rehearsal
 
 Don't take the playbill's word for it - [`rehearsal/`](rehearsal/) is a live chaos drill
-that points **real agent binaries** (Claude Code, Codex, OpenCode, Hermes Agent) at the
+that points **real agent binaries** (Claude Code, Codex, OpenCode, Hermes Agent, OpenClaw) at the
 gateway, injects a wire-accurate 429 from the primary provider mid-conversation, and
 asserts three things from the traffic itself: the fallback finished the tool loop, the
 primary got the traffic back after its cooldown, and the agent saw zero errors.
