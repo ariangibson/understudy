@@ -1,8 +1,8 @@
 /**
  * spotlight — tracing proxy that sits in front of Understudy.
  *
- * Every agent (Claude Code, Codex, OpenCode, OpenClaw, Hermes, n8n HTTP
- * nodes...) points its base URL here instead of at Understudy directly.
+ * Every agent (Claude Code, Codex, OpenCode, Hermes, n8n HTTP nodes...)
+ * points its base URL here instead of at Understudy directly.
  * Spotlight forwards everything to the gateway untouched and, on the way
  * through, records one "span" per LLM request:
  *
@@ -161,6 +161,12 @@ function agentName(req: IncomingMessage): string {
 // ---------------------------------------------------------------------------
 // SSE reassembly — turn a captured event stream back into a final response
 // object per dialect, so spans hold something readable instead of 400 chunks.
+//
+// This deliberately re-implements parsing that src/ already has (sse.ts,
+// cache.ts) rather than importing it. Spotlight is the independent witness in
+// the drill: if it shared the gateway's stream-assembly code, a bug in that
+// code would corrupt the trace and the evidence identically, and the harness
+// could never catch it. An honest observer doesn't run on the code it observes.
 // ---------------------------------------------------------------------------
 
 function sseDataLines(text: string): unknown[] {
