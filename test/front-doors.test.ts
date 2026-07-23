@@ -254,6 +254,92 @@ describe("/v1/messages — cross-provider failover", () => {
   });
 });
 
+describe("/v1/messages — OAuth bearer cannot reach server-key providers", () => {
+  // An sk-ant-oat bearer clears gateway auth (it is the caller's own Anthropic
+  // credential). It must NOT become a skeleton key to the server's other
+  // provider keys — neither by requesting a non-Anthropic model directly nor
+  // by failing over onto one.
+  const OAT = "Bearer sk-ant-oat01-fake-token";
+
+  it("rejects a non-Anthropic model requested with only an OAuth bearer", async () => {
+    const app = await freshApp({
+      GATEWAY_API_KEYS: "gw-secret",
+      OPENAI_API_KEY: "sk-openai-server-key",
+    });
+    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: OAT },
+      body: messagesBody("openai/gpt-5.5"),
+    });
+
+    expect(res.status).toBe(401);
+    // The server key was never spent — no upstream call was made at all.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fail an OAuth-only request over onto a server-key provider", async () => {
+    const app = await freshApp({
+      GATEWAY_API_KEYS: "gw-secret",
+      OPENAI_API_KEY: "sk-openai-server-key",
+      FALLBACK_CHAIN: "openai/gpt-5.5",
+    });
+    const hosts: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) => {
+        hosts.push(new URL(String(url)).hostname);
+        // Anthropic (the caller's own token) is rate-limited; the only
+        // configured fallback is a server-key OpenAI route.
+        return new Response(
+          JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "slow down" } }),
+          { status: 429, headers: { "retry-after": "30" } },
+        );
+      }),
+    );
+
+    const res = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: OAT },
+      body: messagesBody("claude-sonnet-4-6"),
+    });
+
+    // The Anthropic attempt is made with the caller's token and 429s, but the
+    // chain must NOT roll onto OpenAI's server key — so the client sees the
+    // upstream error, and OpenAI is never contacted.
+    expect(hosts).toEqual(["api.anthropic.com"]);
+    expect(hosts).not.toContain("api.openai.com");
+    expect(res.status).toBe(429);
+  });
+
+  it("still lets a valid gateway key use other providers", async () => {
+    const app = await freshApp({
+      GATEWAY_API_KEYS: "gw-secret",
+      OPENAI_API_KEY: "sk-openai-server-key",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify(openaiCompletion("gpt-5.5", "allowed")), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+
+    const res = await app.request("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer gw-secret" },
+      body: messagesBody("openai/gpt-5.5"),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-understudy-provider")).toBe("openai");
+  });
+});
+
 describe("/v1/responses — Codex front door", () => {
   const responsesBody = (model: string, extra: object = {}) =>
     JSON.stringify({

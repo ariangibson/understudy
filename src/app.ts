@@ -237,6 +237,26 @@ export function createApp(): Hono {
     );
     if (resolved.response) return resolved.response;
 
+    // A caller who cleared auth *only* via the sk-ant-oat bypass (auth is on,
+    // but they presented no valid gateway key) is spending their own Anthropic
+    // token — they must never reach a server-key-backed provider, nor fail over
+    // onto one. Restrict their routes to Anthropic before the chain runs.
+    if (config.gatewayKeys.length > 0 && isOAuthBearer(auth.authorization)) {
+      const presentedGatewayKey = auth.authorization?.startsWith("Bearer ")
+        ? auth.authorization.slice(7)
+        : c.req.header("x-api-key") ?? "";
+      if (!config.gatewayKeys.includes(presentedGatewayKey)) {
+        resolved.routes = resolved.routes.filter((r) => r.provider.kind === "anthropic");
+        if (resolved.routes.length === 0) {
+          return messagesErrorResponse(
+            c,
+            401,
+            "An Anthropic OAuth token can only be used to reach Anthropic models. Present a gateway API key to use other providers.",
+          );
+        }
+      }
+    }
+
     let translated: ChatCompletionRequest | null = null;
     const chatReq = () => (translated ??= messagesToChatRequest(req));
 
