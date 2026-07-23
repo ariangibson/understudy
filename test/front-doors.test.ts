@@ -8,6 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 async function freshApp(env: Record<string, string> = {}) {
   vi.resetModules();
+  // Neutralize upstream overrides a dev shell may have exported (e.g. after
+  // a rehearsal/ run) so provider URLs are deterministic under test.
+  vi.stubEnv("UNDERSTUDY_OPENAI_UPSTREAM", "");
+  vi.stubEnv("UNDERSTUDY_ANTHROPIC_UPSTREAM", "");
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
   vi.stubEnv("USAGE_LOG", `/tmp/llm-proxy-test-${Date.now()}-${Math.random()}.jsonl`);
   const { createApp } = await import("../src/app.js");

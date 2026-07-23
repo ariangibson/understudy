@@ -29,7 +29,9 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
   openai: {
     name: "openai",
     kind: "openai-compat",
-    baseUrl: "https://api.openai.com/v1",
+    // Overridable for tests and OpenAI-compatible upstream proxies
+    // (include the /v1). `||` so an empty-but-set var means "default".
+    baseUrl: process.env.UNDERSTUDY_OPENAI_UPSTREAM || "https://api.openai.com/v1",
     apiKeyEnv: "OPENAI_API_KEY",
     streamUsage: true,
     modelPrefixes: ["gpt-", "o1", "o3", "o4", "chatgpt-"],

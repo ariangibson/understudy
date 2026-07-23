@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>spotlight — understudy test harness</title>
+<style>
+  :root {
+    --bg: #12100e; --panel: #1c1917; --panel2: #242019; --line: #38312a;
+    --text: #e8e0d4; --dim: #9a8f7f; --gold: #d4a952; --red: #e05b4d;
+    --green: #7fb069; --blue: #6ca0dc; --purple: #b08bc9;
+    font-size: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.45 ui-monospace, "SF Mono", Menlo, monospace; }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; flex-wrap: wrap; }
+  header h1 { font-size: 15px; color: var(--gold); font-weight: 600; letter-spacing: .04em; }
+  header h1 span { color: var(--dim); font-weight: 400; }
+  .stat { color: var(--dim); } .stat b { color: var(--text); font-weight: 600; }
+  .spacer { flex: 1; }
+  button { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--gold); }
+  #chaosBtn.armed { background: #4a1d18; border-color: var(--red); color: #ffb3aa; }
+  .pill { padding: 1px 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--line); }
+  .pill.ok { color: var(--green); border-color: #2e4526; }
+  .pill.bad { color: var(--red); border-color: #5c2822; }
+  #cooldowns { color: var(--red); font-size: 12px; }
+  .filters { display: flex; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; }
+  select, label.chk { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 4px 8px; font: inherit; }
+  label.chk { cursor: pointer; user-select: none; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: var(--dim); font-weight: 500; padding: 6px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 45px; background: var(--bg); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+  td { padding: 6px 10px; border-bottom: 1px solid #241f1a; vertical-align: top; white-space: nowrap; }
+  tr.row:hover { background: var(--panel); cursor: pointer; }
+  tr.selected { background: var(--panel2); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 0 7px; border-radius: 4px; font-size: 11px; line-height: 18px; }
+  .b-messages { background: #2b2416; color: var(--gold); }
+  .b-chat { background: #17242e; color: var(--blue); }
+  .b-responses { background: #241a2c; color: var(--purple); }
+  .b-anthropic { color: var(--gold); } .b-synthetic { color: var(--purple); }
+  .b-openai { color: var(--blue); } .b-err { color: var(--red); }
+  .fallback { background: #4a2d10; color: #f0b35e; padding: 0 7px; border-radius: 4px; font-size: 11px; line-height: 18px; }
+  .tool { background: #1d2b1a; color: var(--green); padding: 0 6px; border-radius: 4px; font-size: 11px; margin-right: 4px; }
+  .dim { color: var(--dim); }
+  .err { color: var(--red); }
+  #detail { position: fixed; right: 0; top: 0; bottom: 0; width: min(880px, 78vw); background: var(--panel); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .15s ease; z-index: 10; display: flex; flex-direction: column; }
+  #detail.open { transform: none; }
+  #detail .dhead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  #detail .dbody { overflow: auto; padding: 14px; flex: 1; }
+  #detail h3 { color: var(--gold); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin: 14px 0 6px; }
+  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; overflow: auto; white-space: pre-wrap; word-break: break-word; max-height: 420px; font-size: 12px; }
+  .kv { display: grid; grid-template-columns: 160px 1fr; gap: 3px 12px; font-size: 12px; }
+  .kv .k { color: var(--dim); }
+  .msg { border: 1px solid var(--line); border-radius: 6px; margin-bottom: 8px; }
+  .msg .mrole { padding: 4px 10px; font-size: 11px; color: var(--dim); border-bottom: 1px solid var(--line); background: var(--panel2); border-radius: 6px 6px 0 0; }
+  .msg .mtext { padding: 8px 10px; white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; font-size: 12px; }
+  footer { padding: 10px 16px; color: var(--dim); font-size: 11px; }
+  #empty { padding: 40px; text-align: center; color: var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎭 spotlight <span>· understudy test harness</span></h1>
+  <span class="stat">spans <b id="nSpans">0</b></span>
+  <span class="stat">cost <b id="totCost">$0</b></span>
+  <span class="stat">tokens <b id="totTok">0</b></span>
+  <span class="stat">fallbacks <b id="nFb">0</b></span>
+  <span id="cooldowns"></span>
+  <div class="spacer"></div>
+  <span id="chaosState" class="pill ok">anthropic: off</span>
+  <button id="chaosBtn" onclick="toggleChaos('anthropic')">💥 429 anthropic</button>
+  <span id="chaosStateOai" class="pill ok">openai: off</span>
+  <button id="chaosBtnOai" onclick="toggleChaos('openai')">💥 429 openai</button>
+  <button onclick="load(true)">↻</button>
+</header>
+<div class="filters">
+  <select id="fAgent" onchange="render()"><option value="">all agents</option></select>
+  <select id="fProvider" onchange="render()"><option value="">all providers</option></select>
+  <label class="chk"><input type="checkbox" id="fFallback" onchange="render()"> fallbacks only</label>
+  <label class="chk"><input type="checkbox" id="fErrors" onchange="render()"> errors only</label>
+  <label class="chk"><input type="checkbox" id="fAuto" checked> auto-refresh</label>
+</div>
+<table>
+  <thead><tr>
+    <th>time</th><th>agent</th><th>dialect</th><th>request → served</th><th></th>
+    <th class="num">status</th><th class="num">ttfb</th><th class="num">total</th>
+    <th class="num">in</th><th class="num">out</th><th class="num">cost</th>
+    <th>stop</th><th>tools called</th><th>reply</th>
+  </tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div id="empty">no spans yet — point an agent at http://127.0.0.1:42900 and make a request</div>
+<footer>full bodies in rehearsal/traces/spans.jsonl · chaos events in events.jsonl · click a row for the full request/response</footer>
+
+<div id="detail">
+  <div class="dhead">
+    <b id="dTitle"></b><div class="spacer"></div>
+    <button onclick="closeDetail()">✕ close</button>
+  </div>
+  <div class="dbody" id="dBody"></div>
+</div>
+
+<script>
+let spans = [], selected = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtCost = c => c == null ? "—" : "$" + c.toFixed(c < 0.01 ? 5 : 3);
+const fmtTok = n => n == null ? "—" : n >= 1000 ? (n/1000).toFixed(1) + "k" : String(n);
+
+async function load(force) {
+  if (!force && !$("fAuto").checked) return;
+  try {
+    const [sp, health] = await Promise.all([
+      fetch("/__spans").then(r => r.json()),
+      fetch("/__health").then(r => r.json()),
+    ]);
+    spans = sp;
+    updateChaos("anthropic", health.gremlin, $("chaosState"), $("chaosBtn"));
+    updateChaos("openai", health.gremlin_openai, $("chaosStateOai"), $("chaosBtnOai"));
+    const cd = health.understudy?.cooldowns ?? {};
+    $("cooldowns").textContent = Object.keys(cd).length
+      ? "benched: " + Object.entries(cd).map(([k,v]) => `${k} (${v}s)`).join(", ") : "";
+    render();
+  } catch (e) { /* stack restarting; keep polling */ }
+}
+
+function options(sel, values) {
+  const cur = sel.value;
+  const opts = [sel.options[0].outerHTML, ...values.map(v => `<option${v===cur?" selected":""}>${esc(v)}</option>`)];
+  sel.innerHTML = opts.join("");
+}
+
+function render() {
+  options($("fAgent"), [...new Set(spans.map(s => s.agent))]);
+  options($("fProvider"), [...new Set(spans.map(s => s.provider).filter(Boolean))]);
+  const fa = $("fAgent").value, fp = $("fProvider").value;
+  const fb = $("fFallback").checked, fe = $("fErrors").checked;
+  const rows = spans.filter(s =>
+    (!fa || s.agent === fa) && (!fp || s.provider === fp) &&
+    (!fb || s.fallback) && (!fe || s.status >= 400));
+
+  $("nSpans").textContent = rows.length;
+  $("totCost").textContent = fmtCost(rows.reduce((a,s) => a + (s.cost_usd ?? 0), 0));
+  $("totTok").textContent = fmtTok(rows.reduce((a,s) => a + (s.usage?.total_tokens ?? 0), 0));
+  $("nFb").textContent = rows.filter(s => s.fallback).length;
+  $("empty").style.display = rows.length ? "none" : "";
+
+  $("rows").innerHTML = rows.slice().reverse().map(s => {
+    const served = s.provider ? `${s.provider}/${s.model_served ?? "?"}` : (s.status >= 400 ? "—" : "?");
+    const pcls = s.provider ? ` b-${esc(s.provider)}` : "";
+    return `<tr class="row${s.id===selected?" selected":""}" onclick="openDetail('${s.id}')">
+      <td class="dim">${s.ts.slice(11,23)}</td>
+      <td>${esc(s.agent)}</td>
+      <td><span class="badge b-${s.dialect}">${s.dialect}</span></td>
+      <td><span class="dim">${esc(s.model_requested ?? "?")}</span> → <span class="${pcls}">${esc(served)}</span></td>
+      <td>${s.fallback ? `<span class="fallback">🎭 understudy on</span>` : ""}</td>
+      <td class="num ${s.status>=400?"err":""}">${s.status}</td>
+      <td class="num dim">${s.ttfb_ms ?? "—"}</td>
+      <td class="num">${s.latency_ms}ms</td>
+      <td class="num dim">${fmtTok(s.usage?.prompt_tokens)}</td>
+      <td class="num dim">${fmtTok(s.usage?.completion_tokens)}</td>
+      <td class="num">${fmtCost(s.cost_usd)}</td>
+      <td class="dim">${esc(s.stop_reason ?? "—")}</td>
+      <td>${(s.tool_calls ?? []).map(t => `<span class="tool">${esc(t.name)}</span>`).join("")}</td>
+      <td class="dim" style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(s.text_preview ?? "")}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function openDetail(id) {
+  selected = id;
+  const s = await fetch("/__span?id=" + id).then(r => r.json());
+  $("dTitle").textContent = `${s.agent} · ${s.dialect} · ${s.ts}`;
+  const kv = Object.entries({
+    "requested → served": `${s.model_requested} → ${s.provider}/${s.model_served}`,
+    fallback: s.fallback ?? "no (primary served)",
+    status: s.status, stream: s.stream, cache: s.cache ?? "—",
+    "latency / ttfb": `${s.latency_ms}ms / ${s.ttfb_ms ?? "—"}ms`,
+    "tokens in/out": `${s.usage?.prompt_tokens ?? "—"} / ${s.usage?.completion_tokens ?? "—"}`,
+    cost: fmtCost(s.cost_usd), stop_reason: s.stop_reason ?? "—",
+    "messages in request": s.n_messages, "tool results sent in": s.tool_results_in,
+    "system sha / tools sha": `${s.system_sha ?? "—"} / ${s.tools_sha ?? "—"}`,
+    "request sha": s.request_sha, session: s.session ?? "—",
+  }).map(([k,v]) => `<div class="k">${esc(k)}</div><div>${esc(v)}</div>`).join("");
+
+  const msgs = renderMessages(s);
+  $("dBody").innerHTML = `
+    <div class="kv">${kv}</div>
+    ${s.error ? `<h3 class="err">error</h3><pre class="err">${esc(JSON.stringify(s.error, null, 2))}</pre>` : ""}
+    <h3>response (assembled)</h3><pre>${esc(JSON.stringify(s.response_body, null, 2))}</pre>
+    <h3>conversation in request (${s.n_messages ?? 0} messages, last 6 shown)</h3>${msgs}
+    <h3>tools offered (${(s.tools_offered ?? []).length})</h3>
+    <pre>${esc((s.tools_offered ?? []).join(", ") || "none")}</pre>
+    <h3>full request body</h3><pre>${esc(JSON.stringify(s.request_body, null, 2).slice(0, 200000))}</pre>`;
+  $("detail").classList.add("open");
+  render();
+}
+
+function renderMessages(s) {
+  const b = s.request_body ?? {};
+  const list = b.messages ?? b.input ?? [];
+  return list.slice(-6).map(m => {
+    const role = m.role ?? m.type ?? "?";
+    let text;
+    if (typeof m.content === "string") text = m.content;
+    else text = (m.content ?? []).map(c =>
+      c.type === "text" ? c.text :
+      c.type === "tool_use" ? `[tool_use ${c.name}] ${JSON.stringify(c.input).slice(0,600)}` :
+      c.type === "tool_result" ? `[tool_result] ${JSON.stringify(c.content).slice(0,600)}` :
+      `[${c.type}]`).join("\n");
+    return `<div class="msg"><div class="mrole">${esc(role)}</div><div class="mtext">${esc((text ?? "").slice(0, 3000))}</div></div>`;
+  }).join("") || '<div class="dim">none</div>';
+}
+
+function closeDetail() { $("detail").classList.remove("open"); selected = null; render(); }
+
+const chaosArmed = { anthropic: false, openai: false };
+function updateChaos(target, state, pill, btn) {
+  const on = state && state.mode !== "off";
+  chaosArmed[target] = on;
+  pill.textContent = `${target}: ` + (state ? (state.mode === "count" ? `next ${state.count}` : state.mode) : "?");
+  pill.className = "pill " + (on ? "bad" : "ok");
+  btn.textContent = on ? `✅ restore ${target}` : `💥 429 ${target}`;
+  btn.className = on ? "armed" : "";
+}
+
+async function toggleChaos(target) {
+  await fetch("/__chaos?target=" + target, { method: "POST",
+    body: JSON.stringify({ mode: chaosArmed[target] ? "off" : "on" }) });
+  load(true);
+}
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+load(true);
+setInterval(load, 1500);
+</script>
+</body>
+</html>

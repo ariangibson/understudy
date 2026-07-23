@@ -427,6 +427,7 @@ All via environment. The installed `understudy` command reads `.env` from its ho
 | `DEFAULT_MAX_TOKENS` | Used when clients omit `max_tokens` (default 4096) |
 | `USAGE_LOG` | JSONL path (default `data/usage.jsonl`) |
 | `UNDERSTUDY_ANTHROPIC_UPSTREAM` | Alternate Anthropic-compatible upstream for `/v1/messages` passthrough (testing, Bedrock-style proxies) |
+| `UNDERSTUDY_OPENAI_UPSTREAM` | Alternate OpenAI-compatible upstream for the `openai` provider (testing, corporate proxies). Include the `/v1`; the Anthropic hook takes a bare host |
 | `PORT` | Default 42986 |
 
 Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
@@ -442,6 +443,23 @@ npm run build       # emit dist/
 ```
 
 CI runs typecheck + tests on every push and PR; merges to `main` build and publish the multi-arch image to [`ghcr.io/ariangibson/understudy`](https://github.com/ariangibson/understudy/pkgs/container/understudy) (tags: `latest`, `sha-*`, and semver on `v*` tags).
+
+## The dress rehearsal
+
+Don't take the playbill's word for it - [`rehearsal/`](rehearsal/) is a live chaos drill
+that points **real agent binaries** (Claude Code, Codex, OpenCode, Hermes Agent) at the
+gateway, injects a wire-accurate 429 from the primary provider mid-conversation, and
+asserts three things from the traffic itself: the fallback finished the tool loop, the
+primary got the traffic back after its cooldown, and the agent saw zero errors.
+
+```bash
+rehearsal/run.sh              # chaos proxies + gateway + tracing viewer
+rehearsal/scenario.sh claude  # or codex | opencode | hermes
+```
+
+It comes with its own observability: every request through the drill is captured as a
+span - tool calls, latency, TTFB, tokens, cost, and which provider actually served it -
+with a live viewer at `http://127.0.0.1:42900/__ui`. See [rehearsal/README.md](rehearsal/README.md).
 
 ## License
 

@@ -10,6 +10,10 @@ data/
 .env
 .env.local
 
+# Dress-rehearsal runtime output (traces hold full request bodies)
+rehearsal/run/
+rehearsal/traces/
+
 # Logs & OS noise
 *.log
 .DS_Store

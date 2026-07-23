@@ -17,9 +17,10 @@ import { oauthApiKey } from "../oauth.js";
 import type { TokenUsage } from "../types.js";
 import type { MessagesRequest } from "./messages-translate.js";
 
-/** Overridable for tests and Anthropic-compatible upstream proxies. */
+/** Overridable for tests and Anthropic-compatible upstream proxies (bare
+ * host, no /v1). `||` so an empty-but-set var means "default". */
 const ANTHROPIC_API =
-  process.env.UNDERSTUDY_ANTHROPIC_UPSTREAM ?? "https://api.anthropic.com";
+  process.env.UNDERSTUDY_ANTHROPIC_UPSTREAM || "https://api.anthropic.com";
 
 export interface ClientAuth {
   /** Raw Authorization header from the client, if any. */
