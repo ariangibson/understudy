@@ -42,7 +42,7 @@ curl -fsSL https://understudy.cc/install.sh | bash
 understudy
 ```
 
-That's the whole thing. The first run walks you through a short setup - provider keys, a suggested fallback chain, and auto-wiring whichever harnesses it finds installed (Claude Code, Codex, OpenCode, OpenClaw, Hermes), backing up any file it touches - then raises the curtain. Every run after that just starts the gateway. Re-run the wizard any time with `understudy setup`, and un-wire everything in one command with `understudy disable` (see [Going dark](#going-dark)).
+That's the whole thing. The first run walks you through a short setup - provider keys, a suggested fallback chain, and auto-wiring whichever harnesses it finds installed (Claude Code, Codex, OpenCode, Hermes), backing up any file it touches - then raises the curtain. Every run after that just starts the gateway. Re-run the wizard any time with `understudy setup`, and un-wire everything in one command with `understudy disable` (see [Going dark](#going-dark)).
 
 Requires Node 20+ (macOS / Linux). On Windows, `npx github:ariangibson/understudy` does the same today; a native installer is on the roadmap. Container and from-source options are in [Opening night](#opening-night).
 
@@ -60,7 +60,7 @@ Without understudy:                         With understudy:
 
 Your Claude login passes through untouched while Claude performs; the understudy bills its own account - an API key, or **the ChatGPT / Copilot / Claude subscription you already pay for**, seated via [season tickets](#season-tickets). Nobody reconfigures anything at 2 a.m.
 
-Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **OpenClaw**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects - all five named harnesses verified live against this gateway, tool calls and all.
+Works out of the box with **Claude Code**, **Codex**, **OpenCode**, **Hermes Agent**, **LangChain**, and anything else that speaks any of the three major wire dialects - all four named harnesses verified live against this gateway, tool calls and all, by the automated chaos drills in [`rehearsal/`](rehearsal/).
 
 ## Opening night
 
@@ -111,16 +111,19 @@ ANTHROPIC_BASE_URL=http://localhost:42986 claude  # business as usual - until it
 
 When the route is Anthropic itself, requests pass through verbatim - prompt caching, thinking blocks, beta features, and even your Claude Pro/Max login all survive (the gateway forwards your session's OAuth token, so it bills exactly like talking to Anthropic directly). Only when an understudy steps in does translation happen.
 
-**Codex** - speaks the OpenAI Responses dialect to `/v1/responses`; add a provider to `~/.codex/config.toml`:
+**Codex** - speaks the OpenAI Responses dialect to `/v1/responses`. Since Codex 0.144, profiles live in their own file - create `~/.codex/understudy.config.toml` (a `[profiles.*]` table in the main `config.toml` is now a hard error):
 
 ```toml
+model = "gpt-5.5"
 model_provider = "understudy"
 
 [model_providers.understudy]
 name = "Understudy gateway"
 base_url = "http://localhost:42986/v1"
-env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key
+env_key = "UNDERSTUDY_API_KEY"   # any env var holding your gateway key; omit if keys are unset
 ```
+
+Then `codex --profile understudy` - your default Codex setup stays untouched.
 
 This also frees Codex from Responses-only hosts: Codex [dropped chat-completions support](https://github.com/openai/codex/discussions/7782), but through the gateway it can run **any chat-completions-only provider** - `codex -m "syn:large:vision"` runs the current large open-weights model from [synthetic.new](https://synthetic.new) (verified live, tool calls included), no Responses support required on their end. Prefer synthetic's `syn:` aliases over pinned `hf:org/model` ids - they keep working when the host rotates in newer models.
 
@@ -140,22 +143,7 @@ This also frees Codex from Responses-only hosts: Codex [dropped chat-completions
 }
 ```
 
-**OpenClaw** - custom provider in `~/.openclaw/openclaw.json` ([docs](https://docs.openclaw.ai/concepts/model-providers)); use `openai-completions`, or `anthropic-messages` if you want the passthrough fidelity:
-
-```json
-{
-  "models": {
-    "providers": {
-      "understudy": {
-        "baseUrl": "http://localhost:42986/v1",
-        "apiKey": "your-gateway-key",
-        "api": "openai-completions",
-        "models": [{ "id": "claude-sonnet-4-6" }, { "id": "gpt-5-mini" }]
-      }
-    }
-  }
-}
-```
+One OpenAI-specific note: if the model routes to OpenAI's platform (`gpt-5.5` etc.), add `"options": { "reasoningEffort": "none" }` to the model entry - OpenAI rejects `reasoning_effort` combined with function tools on `/v1/chat/completions` for those models.
 
 **Hermes Agent** - set a custom endpoint in the `model:` section of its config ([docs](https://hermes-agent.nousresearch.com/docs/integrations/providers)):
 
@@ -166,6 +154,8 @@ model:
   base_url: http://localhost:42986/v1
   api_key: your-gateway-key
 ```
+
+Gotcha: if you use Hermes' `openai-api` provider instead of `custom`, an `OPENAI_BASE_URL` line in `~/.hermes/.env` silently overrides `model.base_url` - set the gateway URL there, or requests keep going to the old endpoint no matter what the YAML says.
 
 **LangChain / LlamaIndex / your own code** - standard OpenAI client, custom base URL:
 
@@ -339,8 +329,8 @@ Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other pro
 
 | Endpoint | Description |
 |---|---|
-| `POST /v1/chat/completions` | OpenAI chat dialect (OpenCode, Hermes, OpenClaw, LangChain, SDKs) - streaming, tools, vision, failover |
-| `POST /v1/messages` | Anthropic Messages dialect (Claude Code, OpenClaw) - verbatim passthrough to Anthropic, translated failover elsewhere |
+| `POST /v1/chat/completions` | OpenAI chat dialect (OpenCode, Hermes, LangChain, SDKs) - streaming, tools, vision, failover |
+| `POST /v1/messages` | Anthropic Messages dialect (Claude Code) - verbatim passthrough to Anthropic, translated failover elsewhere |
 | `POST /v1/messages/count_tokens` | Token counting passthrough (local estimate when no upstream is available) |
 | `POST /v1/responses` | OpenAI Responses dialect (Codex) - translated through the same chain |
 | `GET /v1/models` | Live aggregated model list across all configured providers (5-min cache) |
@@ -355,7 +345,7 @@ Extras understood on chat requests: `fallbacks` (per-request failover chain) and
 flowchart LR
     CC["Claude Code"] -->|"Anthropic dialect<br/>/v1/messages"| GW
     CX["Codex"] -->|"Responses dialect<br/>/v1/responses"| GW
-    Agent["OpenCode · OpenClaw · Hermes<br/>LangChain · SDKs"] -->|"OpenAI dialect<br/>/v1/chat/completions"| GW
+    Agent["OpenCode · Hermes<br/>LangChain · SDKs"] -->|"OpenAI dialect<br/>/v1/chat/completions"| GW
 
     subgraph GW["understudy"]
         Auth["auth"] --> Front["front doors<br/>(dialect ⇄ internal)"]
