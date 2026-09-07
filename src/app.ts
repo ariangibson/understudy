@@ -1,8 +1,10 @@
 import { Hono, type Context } from "hono";
+import { AccountRotation, expandAccounts, firstUserTurn, sessionKey } from "./accounts.js";
 import { cacheKey, observeSSE, ResponseCache, synthesizeSSE } from "./cache.js";
 import { runChain, understudyHeaders, type DispatchError } from "./chain.js";
 import { config, configuredProviders, getApiKey, isConfigured, PROVIDERS } from "./config.js";
 import { CooldownTracker } from "./cooldown.js";
+import { oauthAccountSummary } from "./oauth.js";
 import { computeCost } from "./pricing.js";
 import { resolveChain, resolveModel, type Route } from "./router.js";
 import { parseSSEData, namedEventStream } from "./sse.js";
@@ -43,6 +45,7 @@ export function createApp(): Hono {
   const app = new Hono();
   const cache = new ResponseCache(config.cacheTtlMs, config.cacheMaxEntries);
   const cooldowns = new CooldownTracker();
+  const rotation = new AccountRotation();
 
   // --- auth -----------------------------------------------------------
   app.use("*", async (c, next) => {
@@ -75,6 +78,8 @@ export function createApp(): Hono {
       providers: configuredProviders().map((p) => p.name),
       /** Models currently benched by the circuit breaker → seconds remaining. */
       cooldowns: cooldowns.active(),
+      /** Stored subscription seats per provider (several rotate per session). */
+      accounts: oauthAccountSummary(),
       uptime_s: Math.floor(process.uptime()),
     }),
   );
@@ -156,7 +161,12 @@ export function createApp(): Hono {
       }
     }
 
-    const resolved = resolveRoutes(req, (status, message) =>
+    const session = sessionKey(
+      req.user,
+      req.messages.filter((m) => m.role === "system"),
+      firstUserTurn(req.messages),
+    );
+    const resolved = resolveRoutes(req, session, (status, message) =>
       openaiError(c, status, message),
     );
     if (resolved.response) return resolved.response;
@@ -181,6 +191,7 @@ export function createApp(): Hono {
 
     const { route, primary, started, result } = outcome;
     const failoverHeaders = understudyHeaders(route, primary);
+    settle(route, session);
 
     if (result.type === "completion") {
       record(route, result.usage, started, false, "ok");
@@ -232,7 +243,12 @@ export function createApp(): Hono {
       isConfigured(route.provider) ||
       (route.provider.kind === "anthropic" && isOAuthBearer(auth.authorization));
 
-    const resolved = resolveRoutes(req, (status, message) =>
+    const session = sessionKey(
+      (req.metadata as { user_id?: unknown } | undefined)?.user_id,
+      req.system,
+      req.messages[0],
+    );
+    const resolved = resolveRoutes(req, session, (status, message) =>
       messagesErrorResponse(c, status, message),
     );
     if (resolved.response) return resolved.response;
@@ -265,7 +281,13 @@ export function createApp(): Hono {
       cooldowns,
       async (route): Promise<MessagesResult | DispatchError> => {
         if (route.provider.kind === "anthropic") {
-          return anthropicMessagesPassthrough(route.provider, route.model, req, auth);
+          return anthropicMessagesPassthrough(
+            route.provider,
+            route.model,
+            req,
+            auth,
+            route.account,
+          );
         }
         const result = await dispatch(route, chatReq());
         if (result.type === "error") return result;
@@ -301,6 +323,7 @@ export function createApp(): Hono {
 
     const { route, primary, started, result } = outcome;
     const failoverHeaders = understudyHeaders(route, primary);
+    settle(route, session);
 
     if (result.type === "json") {
       record(route, result.usage, started, false, "ok");
@@ -343,7 +366,14 @@ export function createApp(): Hono {
       return c.json(responsesError("Missing required field: model") as object, 400);
     }
 
-    const resolved = resolveRoutes(req, (status, message) =>
+    const session = sessionKey(
+      req.prompt_cache_key ?? req.user,
+      req.instructions,
+      typeof req.input === "string"
+        ? req.input
+        : firstUserTurn((req.input ?? []) as Array<{ role: string }>),
+    );
+    const resolved = resolveRoutes(req, session, (status, message) =>
       c.json(responsesError(message) as object, status),
     );
     if (resolved.response) return resolved.response;
@@ -372,6 +402,7 @@ export function createApp(): Hono {
 
     const { route, primary, started, result } = outcome;
     const failoverHeaders = understudyHeaders(route, primary);
+    settle(route, session);
 
     if (result.type === "completion") {
       record(route, result.usage, started, false, "ok");
@@ -400,10 +431,12 @@ export function createApp(): Hono {
 
   /**
    * Shared front-door preamble: pick the fallback chain, resolve routes,
+   * fan multi-seat subscription providers out per account for this session,
    * and shape early validation errors in the caller's dialect.
    */
   function resolveRoutes(
     req: { model: string; fallbacks?: string[] },
+    session: string,
     err: (status: 400, message: string) => Response,
   ): { routes: Route[]; response?: Response } {
     const usingRequestFallbacks = req.fallbacks != null;
@@ -433,7 +466,15 @@ export function createApp(): Hono {
       // A bad FALLBACK_CHAIN entry shouldn't fail user requests.
       console.warn(`Ignoring unroutable FALLBACK_CHAIN entries: ${unresolved.join(", ")}`);
     }
-    return { routes };
+    return { routes: expandAccounts(routes, session, rotation) };
+  }
+
+  /**
+   * After a seat serves a session, pin the session there: if failover moved
+   * it off a benched seat, later turns should warm one cache, not bounce.
+   */
+  function settle(route: Route, session: string): void {
+    if (route.account) rotation.remember(route.provider.name, session, route.account);
   }
 }
 
@@ -464,11 +505,11 @@ function recordCacheHit(req: ChatCompletionRequest, hit: ChatCompletionResponse)
 function dispatch(route: Route, req: ChatCompletionRequest): Promise<ProviderResult> {
   switch (route.provider.kind) {
     case "anthropic":
-      return anthropicChat(route.provider, route.model, req);
+      return anthropicChat(route.provider, route.model, req, route.account);
     case "chatgpt":
-      return chatgptChat(route.provider, route.model, req);
+      return chatgptChat(route.provider, route.model, req, route.account);
     default:
-      return openaiCompatChat(route.provider, route.model, req);
+      return openaiCompatChat(route.provider, route.model, req, route.account);
   }
 }
 

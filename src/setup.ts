@@ -152,7 +152,8 @@ export async function runSetup(opts: { firstRun?: boolean } = {}): Promise<void>
   console.log(
     "\nSubscriptions (ChatGPT Plus/Pro, Claude Pro/Max, GitHub Copilot) can also serve:",
   );
-  console.log("  understudy login chatgpt | anthropic | copilot\n");
+  console.log("  understudy login chatgpt | anthropic | copilot");
+  console.log("  (run it again to add a second seat on the same provider - sessions rotate across them)\n");
 
   // --- harness wiring ---------------------------------------------------
   console.log("Detected harnesses can be routed through the gateway automatically");

@@ -18,6 +18,8 @@ export async function openaiCompatChat(
   provider: ProviderConfig,
   model: string,
   req: ChatCompletionRequest,
+  /** Which stored subscription seat to bill, when several are logged in. */
+  account?: string,
 ): Promise<ProviderResult> {
   // Strip gateway extensions; rewrite model to the bare provider name.
   const { fallbacks: _fallbacks, ...rest } = req;
@@ -37,7 +39,7 @@ export async function openaiCompatChat(
   let apiKey = getApiKey(provider);
   if (!apiKey) {
     // OAuth subscription fallback (e.g. GitHub Copilot via `understudy login`).
-    const oauthKey = await oauthApiKey(provider.name).catch(() => null);
+    const oauthKey = await oauthApiKey(provider.name, account).catch(() => null);
     if (oauthKey) {
       apiKey = oauthKey;
       if (provider.name === "copilot") {

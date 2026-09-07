@@ -496,8 +496,11 @@ export async function runStatus(): Promise<void> {
   const health = await gatewayHealth(ctx.baseUrl);
   if (health) {
     const benched = Object.keys(health.cooldowns ?? {}).length;
+    const seats = Object.entries(health.accounts ?? {})
+      .filter(([, ids]) => ids.length > 1)
+      .map(([name, ids]) => `${name}×${ids.length}`);
     console.log(
-      `gateway   up at ${ctx.baseUrl} (providers: ${health.providers?.join(", ") || "none"}${benched ? `; ${benched} benched` : ""})`,
+      `gateway   up at ${ctx.baseUrl} (providers: ${health.providers?.join(", ") || "none"}${seats.length ? `; seats: ${seats.join(", ")}` : ""}${benched ? `; ${benched} benched` : ""})`,
     );
   } else {
     console.log(`gateway   DOWN (nothing answering at ${ctx.baseUrl})`);
@@ -515,11 +518,19 @@ async function gatewayUp(baseUrl: string): Promise<boolean> {
 
 async function gatewayHealth(
   baseUrl: string,
-): Promise<{ providers?: string[]; cooldowns?: Record<string, number> } | null> {
+): Promise<{
+  providers?: string[];
+  cooldowns?: Record<string, number>;
+  accounts?: Record<string, string[]>;
+} | null> {
   try {
     const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(2000) });
     return res.ok
-      ? ((await res.json()) as { providers?: string[]; cooldowns?: Record<string, number> })
+      ? ((await res.json()) as {
+          providers?: string[];
+          cooldowns?: Record<string, number>;
+          accounts?: Record<string, string[]>;
+        })
       : null;
   } catch {
     return null;

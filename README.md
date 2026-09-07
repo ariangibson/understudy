@@ -286,6 +286,19 @@ understudy login copilot      # GitHub Copilot
 
 (No install? `npx github:ariangibson/understudy login <provider>`. From a clone: `npm run login -- <provider>`.)
 
+### Understudies for the understudy
+
+Four ChatGPT Pro seats? Log in four times. Each login adds a seat instead of replacing the last one, and the gateway rotates across them:
+
+```bash
+understudy login chatgpt      # seat one
+understudy login chatgpt      # seat two - a different account
+```
+
+Rotation is per *session*, not per request, and that's deliberate. Provider prompt caches are scoped to the account, so bouncing one conversation's turns across four seats would leave every seat's cached prefix stale and re-bill the whole context on each turn. Instead, each new conversation is dealt to the next seat in the ring and stays there for its whole run, so its cache stays warm while the seats share the load. When a seat hits its limit, the circuit breaker benches *that seat* alone (until the `resets_at` the backend reports); the conversation moves to the next seat and re-pins there, and the benched seat rejoins the ring when it recovers. Only when every seat is benched does the chain move on to the next provider.
+
+Sessions are recognized by the labels harnesses already send (Codex's `prompt_cache_key`, Claude Code's `metadata.user_id`, the OpenAI `user` field), or failing that by the system prompt plus the opening user turn. `x-understudy-account` on each response names the seat that served it; `/health` lists seats under `accounts` and benches them as `chatgpt/gpt-5.5@<seat>`. `understudy login chatgpt --reset` forgets every stored seat before logging in again. The same holds for Claude and Copilot seats.
+
 Claude Code, rescued by the ChatGPT subscription you're already paying for:
 
 ```bash

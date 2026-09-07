@@ -84,6 +84,7 @@ export function understudyHeaders(route: Route, primary: Route): Record<string, 
   return {
     "x-understudy-provider": route.provider.name,
     "x-understudy-model": route.model,
+    ...(route.account ? { "x-understudy-account": route.account } : {}),
     ...(routeKey(route) !== routeKey(primary)
       ? { "x-understudy-fallback": `from ${routeKey(primary)}` }
       : {}),

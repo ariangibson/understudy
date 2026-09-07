@@ -7,6 +7,7 @@
  *   understudy disable [harness]   hand harnesses back their direct connections
  *   understudy status              gateway health + who's routed through it
  *   understudy login <provider>    OAuth login for subscription providers
+ *                                  (repeat to add seats; --reset to forget)
  */
 
 import { existsSync } from "node:fs";
@@ -43,13 +44,13 @@ async function main(): Promise<void> {
     }
     case "login": {
       const { runLogin } = await import("./login.js");
-      await runLogin(process.argv[3]);
+      await runLogin(process.argv[3], process.argv.slice(4));
       return;
     }
     default:
       console.error(`Unknown command: ${command}`);
       console.error(
-        "usage: understudy [serve|setup|enable [harness]|disable [harness]|status|login <provider>]",
+        "usage: understudy [serve|setup|enable [harness]|disable [harness]|status|login <provider> [--reset]]",
       );
       process.exit(1);
   }

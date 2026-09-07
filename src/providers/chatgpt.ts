@@ -37,8 +37,11 @@ export async function chatgptChat(
   provider: ProviderConfig,
   model: string,
   req: ChatCompletionRequest,
+  /** Which stored subscription seat to bill, when several are logged in. */
+  account?: string,
 ): Promise<ProviderResult> {
-  const token = getApiKey(provider) ?? (await oauthApiKey(provider.name).catch(() => null));
+  const token =
+    getApiKey(provider) ?? (await oauthApiKey(provider.name, account).catch(() => null));
   if (!token) {
     return providerError(provider, 503, false, `No ${provider.apiKeyEnv} or stored login`);
   }

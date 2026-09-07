@@ -4,6 +4,12 @@ export interface Route {
   provider: ProviderConfig;
   /** Model name with any provider prefix stripped. */
   model: string;
+  /**
+   * Which stored subscription account serves this route, when the provider
+   * holds several (see accounts.ts). Absent for API-key and single-account
+   * providers.
+   */
+  account?: string;
 }
 
 /**
@@ -30,8 +36,10 @@ export function resolveModel(modelString: string): Route | null {
   return null;
 }
 
+/** `provider/model`, plus `@account` when a specific subscription seat is meant. */
 export function routeKey(route: Route): string {
-  return `${route.provider.name}/${route.model}`;
+  const base = `${route.provider.name}/${route.model}`;
+  return route.account ? `${base}@${route.account}` : base;
 }
 
 /**

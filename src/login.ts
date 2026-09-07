@@ -1,12 +1,17 @@
 /**
- * Interactive OAuth login:  understudy login <anthropic|chatgpt|copilot>
+ * Interactive OAuth login:  understudy login <anthropic|chatgpt|copilot> [--reset]
  *
  * Stores credentials in data/auth.json (0600). The gateway picks them up
  * automatically whenever the matching provider has no API key env set.
+ *
+ * Running login again for the same provider adds another seat rather than
+ * replacing the first: several subscriptions on one provider rotate per
+ * session and bench one at a time (see accounts.ts). `--reset` forgets the
+ * provider's existing seats before logging in.
  */
 
 import { createInterface } from "node:readline/promises";
-import { saveCredentials, type OAuthCreds } from "./oauth.js";
+import { clearCredentials, oauthAccounts, saveCredentials, type OAuthCreds } from "./oauth.js";
 
 const PROVIDERS: Record<string, { id: string; label: string }> = {
   anthropic: { id: "anthropic", label: "Anthropic (Claude Pro/Max)" },
@@ -14,11 +19,15 @@ const PROVIDERS: Record<string, { id: string; label: string }> = {
   copilot: { id: "github-copilot", label: "GitHub Copilot" },
 };
 
-export async function runLogin(name: string | undefined): Promise<void> {
+export async function runLogin(name: string | undefined, flags: string[] = []): Promise<void> {
   const target = name ? PROVIDERS[name] : undefined;
   if (!target) {
-    console.error(`usage: understudy login <${Object.keys(PROVIDERS).join("|")}>`);
+    console.error(`usage: understudy login <${Object.keys(PROVIDERS).join("|")}> [--reset]`);
     process.exit(1);
+  }
+  if (flags.includes("--reset")) {
+    clearCredentials(target.id);
+    console.log(`Forgot every stored ${target.label} seat.`);
   }
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -43,11 +52,17 @@ export async function runLogin(name: string | undefined): Promise<void> {
         ? await oauth.loginOpenAICodex(callbacks)
         : await oauth.loginGitHubCopilot(callbacks);
 
-  saveCredentials(target.id, creds as OAuthCreds);
+  const account = saveCredentials(target.id, creds as OAuthCreds);
   rl.close();
+  const seats = oauthAccounts(name!);
   console.log(
-    `\nLogged in to ${target.label}. The understudy now has a key to the stage door.`,
+    `\nLogged in to ${target.label} as ${account.id}. The understudy now has a key to the stage door.`,
   );
+  if (seats.length > 1) {
+    console.log(
+      `${seats.length} ${target.label} seats on file (${seats.map((a) => a.id).join(", ")}); sessions rotate across them and each benches on its own. Run login again to add another, or with --reset to start over.`,
+    );
+  }
   if (target.id === "anthropic") {
     console.log(
       "Note: Anthropic bills third-party OAuth usage per-token against your subscription's extra usage, and may change this behavior — keep an API key configured as the durable path.",

@@ -12,27 +12,28 @@ import {
 } from "./anthropic-translate.js";
 
 let client: Anthropic | null = null;
-let oauthClient: { token: string; client: Anthropic } | null = null;
+/** One client per live OAuth token (several seats may be logged in). */
+const oauthClients = new Map<string, Anthropic>();
 
-async function getClient(provider: ProviderConfig): Promise<Anthropic> {
+async function getClient(provider: ProviderConfig, account?: string): Promise<Anthropic> {
   const apiKey = getApiKey(provider);
   if (apiKey) return (client ??= new Anthropic({ apiKey }));
 
   // Subscription OAuth (`understudy login anthropic`): bearer auth plus the
-  // oauth beta marker. Tokens rotate on refresh, so rebuild on change.
-  const token = await oauthApiKey(provider.name).catch(() => null);
+  // oauth beta marker. Tokens rotate on refresh, so key clients by token.
+  const token = await oauthApiKey(provider.name, account).catch(() => null);
   if (token) {
-    if (oauthClient?.token !== token) {
-      oauthClient = {
-        token,
-        client: new Anthropic({
-          apiKey: null,
-          authToken: token,
-          defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
-        }),
-      };
+    let c = oauthClients.get(token);
+    if (!c) {
+      if (oauthClients.size >= 16) oauthClients.clear();
+      c = new Anthropic({
+        apiKey: null,
+        authToken: token,
+        defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
+      });
+      oauthClients.set(token, c);
     }
-    return oauthClient.client;
+    return c;
   }
 
   return (client ??= new Anthropic({ apiKey }));
@@ -44,9 +45,11 @@ export async function anthropicChat(
   provider: ProviderConfig,
   model: string,
   req: ChatCompletionRequest,
+  /** Which stored subscription seat to bill, when several are logged in. */
+  account?: string,
 ): Promise<ProviderResult> {
   const params = toAnthropicParams(model, req, config.defaultMaxTokens);
-  const anthropic = await getClient(provider);
+  const anthropic = await getClient(provider, account);
 
   try {
     if (!req.stream) {

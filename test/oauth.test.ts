@@ -55,7 +55,10 @@ describe("oauth module", () => {
     const { saveCredentials } = await import("../src/oauth.js");
     saveCredentials("anthropic", { refresh: "r", access: "a", expires: 1 });
     expect(statSync(path).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(readFileSync(path, "utf8")).anthropic.access).toBe("a");
+    const stored = JSON.parse(readFileSync(path, "utf8")).anthropic;
+    expect(stored).toHaveLength(1);
+    expect(stored[0].access).toBe("a");
+    expect(stored[0].id).toMatch(/^[0-9a-f]{8}$/);
   });
 
   it("derives the Copilot API host from the token's proxy-ep", async () => {

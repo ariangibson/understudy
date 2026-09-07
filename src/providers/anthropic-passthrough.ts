@@ -58,6 +58,8 @@ export async function anthropicMessagesPassthrough(
   model: string,
   req: MessagesRequest,
   auth: ClientAuth,
+  /** Which stored subscription seat to bill, when several are logged in. */
+  account?: string,
 ): Promise<MessagesResult> {
   const { fallbacks: _fallbacks, ...rest } = req;
   const body = { ...rest, model };
@@ -83,7 +85,7 @@ export async function anthropicMessagesPassthrough(
       if (betas.length) headers["anthropic-beta"] = betas.join(",");
     } else {
       // Server-side subscription OAuth (`understudy login anthropic`).
-      const token = await oauthApiKey(provider.name).catch(() => null);
+      const token = await oauthApiKey(provider.name, account).catch(() => null);
       if (!token) {
         return {
           type: "error",
