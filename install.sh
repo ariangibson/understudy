@@ -80,4 +80,6 @@ case ":$PATH:" in
 esac
 
 step "Installed. Raise the curtain:"
-printf '\n   understudy          # first run walks you through setup, then serves\n\n'
+printf '\n   understudy                 # first run walks you through setup, then serves\n'
+printf '   understudy setup --yes ... # no prompts (agents: https://understudy.cc/AGENTS.md)\n'
+printf '   understudy start           # run as a service that outlives this shell\n\n'

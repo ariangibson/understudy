@@ -430,24 +430,20 @@ export const HARNESSES: Record<HarnessName, Harness> = {
   },
 };
 
+/**
+ * The gateway's .env lives in the cwd - cli.ts chdir's to the gateway home
+ * (~/.understudy for an installed copy) before any subcommand runs.
+ */
 export function defaultContext(): HarnessContext {
   const home = homedir();
-  let port = Number(process.env.PORT ?? 0);
-  if (!port) {
-    try {
-      const env = readFileSync(join(home, ".understudy", ".env"), "utf8");
-      port = Number(env.match(/^PORT=(\d+)/m)?.[1] ?? 42986);
-    } catch {
-      port = 42986;
-    }
-  }
-  let gatewayKey = "";
+  let env = "";
   try {
-    const env = readFileSync(join(home, ".understudy", ".env"), "utf8");
-    gatewayKey = env.match(/^GATEWAY_API_KEYS=([^,\n]+)/m)?.[1] ?? "";
+    env = readFileSync(join(process.cwd(), ".env"), "utf8");
   } catch {
-    // no installed .env - localhost defaults apply
+    // no .env yet - localhost defaults apply
   }
+  const port = Number(process.env.PORT || env.match(/^PORT=(\d+)/m)?.[1] || 42986);
+  const gatewayKey = env.match(/^GATEWAY_API_KEYS=([^,\n]+)/m)?.[1] ?? "";
   return { home, baseUrl: `http://localhost:${port}`, gatewayKey };
 }
 
@@ -490,10 +486,28 @@ export async function runToggle(
   }
 }
 
-/** `understudy status` - who's on stage, who's benched, who's routed. */
-export async function runStatus(): Promise<void> {
+/** `understudy status [--json]` - who's on stage, who's benched, who's routed. */
+export async function runStatus(args: string[] = []): Promise<void> {
   const ctx = defaultContext();
   const health = await gatewayHealth(ctx.baseUrl);
+  if (args.includes("--json")) {
+    const { detectManager, servicePaths, serviceStatus } = await import("./service.js");
+    const harnesses = Object.fromEntries(
+      HARNESS_NAMES.map((n) => [n, HARNESSES[n].status(ctx)]),
+    );
+    console.log(
+      JSON.stringify(
+        {
+          gateway: { up: health !== null, base_url: ctx.baseUrl, ...(health ?? {}) },
+          service: serviceStatus(servicePaths(), detectManager()),
+          harnesses,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
   if (health) {
     const benched = Object.keys(health.cooldowns ?? {}).length;
     const seats = Object.entries(health.accounts ?? {})
@@ -522,6 +536,7 @@ async function gatewayHealth(
   providers?: string[];
   cooldowns?: Record<string, number>;
   accounts?: Record<string, string[]>;
+  uptime_s?: number;
 } | null> {
   try {
     const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(2000) });
@@ -530,6 +545,7 @@ async function gatewayHealth(
           providers?: string[];
           cooldowns?: Record<string, number>;
           accounts?: Record<string, string[]>;
+          uptime_s?: number;
         })
       : null;
   } catch {

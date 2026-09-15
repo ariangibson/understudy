@@ -1,0 +1,21 @@
+# understudy
+
+> The self-hosted LLM gateway that keeps AI agents running. When the lead model rate-limits or fails, the understudy steps in mid-run - same session, same tools, reply streamed back in the harness's own dialect - and the lead returns when it recovers.
+
+Point Claude Code, Codex, OpenCode, Hermes, OpenClaw, or any OpenAI/Anthropic-dialect client at http://localhost:42986. Server-side fallback chain, per-model circuit breaker, response cache, cost log. Subscriptions (ChatGPT Plus/Pro, Claude Pro/Max, Copilot) can stand in for API keys; several seats on one provider rotate per session.
+
+## For agents setting it up on someone's behalf
+
+- [AGENTS.md](https://understudy.cc/AGENTS.md): the runbook. Install one-liner, `setup --yes --json` flags, `start` as a service, `doctor --json` fix loop, `status --json`, which step needs the person (OAuth login), and the ready checklist.
+
+Install: `curl -fsSL https://understudy.cc/install.sh | bash`
+Configure: `understudy setup --yes --json --anthropic-key ... --openai-key ... --enable all`
+Run: `understudy start`
+Verify: `understudy doctor --json`
+Off switch: `understudy disable`
+
+## Docs
+
+- [README](https://github.com/ariangibson/understudy#readme): full docs - harness recipes, providers, failover, recasting, season tickets (subscriptions), cache, usage, API surface, architecture.
+- [install.sh](https://understudy.cc/install.sh): installer source.
+- [Source](https://github.com/ariangibson/understudy): MIT, TypeScript, 4 runtime deps.

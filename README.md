@@ -74,6 +74,14 @@ docker run --rm -p 42986:42986 --env-file .env ghcr.io/ariangibson/understudy:la
 
 Or from source: `git clone https://github.com/ariangibson/understudy && cd understudy && npm install && npm run setup && npm run dev`.
 
+Having an agent set it up for you? Point it at [AGENTS.md](AGENTS.md) (also at [understudy.cc/AGENTS.md](https://understudy.cc/AGENTS.md)). The whole flow has a no-prompts form - keys and chain as flags, a JSON report back, a service that outlives the shell, and a `doctor` that names the fix for anything missing:
+
+```bash
+understudy setup --yes --json --anthropic-key sk-ant-... --openai-key sk-... --enable all
+understudy start
+understudy doctor
+```
+
 Under it all, the two lines in `.env` that change everything (the wizard writes them for you):
 
 ```bash
@@ -203,7 +211,21 @@ Re-routes everything through the gateway (with a loud warning first if no gatewa
 understudy status
 ```
 
-Who's on stage right now: gateway health, live providers, who's benched, and which harnesses are routed through the gateway versus talking to their providers directly.
+Who's on stage right now: gateway health, live providers, who's benched, and which harnesses are routed through the gateway versus talking to their providers directly. `--json` gives the same as one object.
+
+```bash
+understudy start          # run as a service: launchd on macOS, systemd --user on Linux
+understudy stop           # stop and uninstall it (routing is left as is - `disable` is separate)
+understudy logs -f
+```
+
+`start` returns once `/health` answers, and the service comes back after a crash or a reboot. Without it, plain `understudy` runs in the foreground and dies with the terminal.
+
+```bash
+understudy doctor
+```
+
+Everything that has to be true for the show to go on - Node version, `.env`, at least one provider, a routable chain, the gateway answering, the service installed, harnesses routed - one line each, and for every miss the exact command that fixes it. Exit code 1 while anything is failing, `--json` for scripts and agents.
 
 ## The cast
 
@@ -358,7 +380,7 @@ Supports `?since=2026-06-01T00:00:00Z`. Anthropic prices are verified; other pro
 | `POST /v1/responses` | OpenAI Responses dialect (Codex, OpenClaw) - translated through the same chain |
 | `GET /v1/models` | Live aggregated model list across all configured providers (5-min cache) |
 | `GET /v1/usage` | Usage, cost, and cache-savings summary |
-| `GET /health` | Status, active providers, current cooldowns (unauthenticated) |
+| `GET /health` | Status, active providers, current cooldowns, subscription seats (unauthenticated) |
 
 Extras understood on chat requests: `fallbacks` (per-request failover chain) and `reasoning_effort` (mapped to Anthropic adaptive thinking + `output_config.effort`; passed through to providers that support it natively). Sampling params are auto-stripped for models that reject them (Opus 4.7+, Fable 5). Your provider keys live server-side; agents authenticate with gateway keys (`GATEWAY_API_KEYS`).
 
@@ -397,8 +419,11 @@ src/
   config.ts                    provider registry (add a provider in ~8 lines)
   cache.ts                     response cache: keying, LRU+TTL, SSE assembly/replay
   sse.ts                       SSE parsing/encoding for cross-dialect streaming
-  cli.ts                       the understudy command (serve / setup / login)
-  setup.ts                     interactive wizard: keys, chain, harness wiring
+  accounts.ts                  several seats per provider: session-sticky rotation
+  cli.ts                       the understudy command (serve / start / setup / doctor / ...)
+  setup.ts                     setup: interactive wizard or flag-driven, same write path
+  service.ts                   start/stop/logs - launchd, systemd --user, or pidfile
+  doctor.ts                    every precondition, each with its fix
   harnesses.ts                 enable/disable/status - route harnesses, restore them
   oauth.ts                     subscription credentials (login storage + refresh)
   login.ts                     OAuth login flows
@@ -442,6 +467,8 @@ All via environment. The installed `understudy` command reads `.env` from its ho
 | `UNDERSTUDY_ANTHROPIC_UPSTREAM` | Alternate Anthropic-compatible upstream for `/v1/messages` passthrough (testing, Bedrock-style proxies) |
 | `UNDERSTUDY_OPENAI_UPSTREAM` | Alternate OpenAI-compatible upstream for the `openai` provider (testing, corporate proxies). Include the `/v1`; the Anthropic hook takes a bare host |
 | `PORT` | Default 42986 |
+| `UNDERSTUDY_HOME` | Gateway home for every subcommand (default: the cwd when it has a `.env`, else `~/.understudy`) |
+| `UNDERSTUDY_SERVICE` | Force the service manager `start` uses: `launchd`, `systemd`, or `pidfile` (containers, CI) |
 
 Adding another OpenAI-compatible provider is one entry in `src/config.ts`.
 
